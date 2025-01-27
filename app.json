@@ -1,0 +1,42 @@
+{
+  "expo": {
+    "name": "DJournal",
+    "slug": "DJournal",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "icon": "./assets/icon.png",
+    "userInterfaceStyle": "light",
+    "splash": {
+      "image": "./assets/splash.png",
+      "resizeMode": "contain",
+      "backgroundColor": "#ffffff"
+    },
+    "ios": {
+      "supportsTablet": true,
+      "infoPlist": {
+        "NSLocationWhenInUseUsageDescription": "We need access to your location to provide location-based features."
+      }
+    },
+    "android": {
+      "adaptiveIcon": {
+        "foregroundImage": "./assets/adaptive-icon.png",
+        "backgroundColor": "#ffffff",
+        "newArchEnabled": true
+      },
+      "package": "com.group10.djournal",
+      "permissions": ["ACCESS_FINE_LOCATION", "ACCESS_COARSE_LOCATION"]
+    },
+    "web": {
+      "favicon": "./assets/favicon.png"
+    },
+    "scheme": ["DJournal"],
+    "extra": {
+      "eas": {
+        "projectId": "b6e1b656-528d-4c0c-84d5-543bf0b4670f"
+      }
+    },
+    "plugins": [
+      "expo-font"
+    ]
+  }
+}
