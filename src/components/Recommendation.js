@@ -1,107 +1,102 @@
 import React from 'react';
-import { View, Text, Image, StyleSheet, ScrollView, TouchableOpacity } from 'react-native';
-import { useFonts, Poppins_400Regular, Poppins_600SemiBold } from '@expo-google-fonts/poppins';
-import { MaterialCommunityIcons } from '@expo/vector-icons';
+import { View, Text, StyleSheet, Image, TouchableOpacity, ScrollView } from 'react-native';
+import { useNavigation } from '@react-navigation/native';
 
-const Recommendation = ({ recommendations, onImagePress }) => {
-  const [fontsLoaded] = useFonts({
-    Poppins_400Regular,
-    Poppins_600SemiBold,
-  });
+const Recommendation = ({ data }) => {
+  const navigation = useNavigation();
 
-  if (!fontsLoaded) {
-    return null;
-  }
+  // Ensure user_submitted_images is an array
+  const userImages = Array.isArray(data.user_submitted_images) ? data.user_submitted_images : [];
 
   return (
-    <View>
-      <Text style={styles.recommendationTitle}>Recommendation</Text>
-      <ScrollView
-        horizontal
-        showsHorizontalScrollIndicator={false}
-        contentContainerStyle={styles.scrollContainer}
-      >
-        {recommendations.map((place) => (
-          <View key={place.id} style={styles.placeContainer}>
-            <TouchableOpacity onPress={() => onImagePress(place.id)}>
-              <Image source={place.image} style={styles.placeImage} />
-            </TouchableOpacity>
-            <View style={styles.placeHeader}>
-              <Text style={styles.placeName}>{place.name}</Text>
-            </View>
-            <View style={styles.placeInfo}>
-              <MaterialCommunityIcons
-                name="map-marker"
-                size={16}
-                color="#525fe1"
-                style={styles.locationIcon}
-              />
-              <Text style={styles.placeLocation}>{place.location}</Text>
-            </View>
-          </View>
-        ))}
-      </ScrollView>
-    </View>
+    <TouchableOpacity
+      style={styles.card}
+      onPress={() => navigation.navigate('PlaceDetail', {
+        location_name: data.location_name,
+        location_place: data.location_place,
+        location_description: data.location_description,
+        overall_positive: data.overall_positive,
+        overall_negative: data.overall_negative,
+        overall_neutral: data.overall_neutral,
+        location_images: data.location_images,
+        user_submitted_images: userImages,
+      })}
+    >
+      {/* Display Main Location Image */}
+      {data.location_images ? (
+        <Image
+          source={{ 
+            uri: data.location_images.startsWith('/') 
+              ? `http://192.168.1.3:3000${data.location_images}` 
+              : `http://192.168.1.3:3000/uploads/${data.location_images}` 
+          }}
+          style={styles.image}
+          resizeMode="cover"
+        />
+      ) : (
+        <View style={[styles.image, styles.imagePlaceholder]}>
+          <Text style={styles.placeholderText}>No image</Text>
+        </View>
+      )}
+
+      <View style={styles.textContainer}>
+        <Text style={styles.title} numberOfLines={2} ellipsizeMode="tail">
+          {data.location_name}
+        </Text>
+        <Text style={styles.subtitle} numberOfLines={2} ellipsizeMode="tail">
+          {data.location_place}
+        </Text>
+      </View>
+    </TouchableOpacity>
   );
 };
 
 const styles = StyleSheet.create({
-  recommendationTitle: {
-    fontSize: 20,
-    fontFamily: 'Poppins_600SemiBold',
-    marginVertical: 10,
-    color: '#000',
-    left: 10,
-  },
-  scrollContainer: {
-    paddingHorizontal: 10,
-    paddingBottom: 20,
-    paddingTop: 5,
-  },
-  placeContainer: {
-    marginRight: 20,
-    backgroundColor: '#fff',
-    borderRadius: 15,
-    overflow: 'hidden',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.25,
-    shadowRadius: 5,
-    elevation: 4,
-    width: 300,
-    padding: 5,
-    position: 'relative',
-  },
-  placeImage: {
-    width: '100%',
-    height: 180,
-    borderRadius: 15,
-    resizeMode: 'cover',
-  },
-  placeHeader: {
-    marginTop: 15,
-  },
-  placeName: {
-    fontSize: 16,
-    fontFamily: 'Poppins_600SemiBold',
-    color: '#333',
-    textAlign: 'left',
-    left: 10,
-  },
-  placeInfo: {
+  card: {
     flexDirection: 'row',
-    alignItems: 'center',
+    backgroundColor: '#fff',
+    padding: 5,
+    borderRadius: 10,
     marginBottom: 10,
+    shadowColor: '#000',
+    shadowOpacity: 0.1,
+    shadowRadius: 5,
+    elevation: 5,
+    alignItems: 'center',
+    marginHorizontal: 5,
   },
-  locationIcon: {
-    marginRight: 5,
-    left: 6,
+  image: {
+    width: 130,
+    height: 100,
+    borderRadius: 10,
+    marginRight: 15,
   },
-  placeLocation: {
-    fontSize: 14,
-    fontFamily: 'Poppins_400Regular',
+  imagePlaceholder: {
+    backgroundColor: '#f0f0f0',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  placeholderText: {
     color: '#666',
-    left: 5,
+    fontSize: 12,
+    fontFamily: 'Poppins_400Regular',
+  },
+  textContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    paddingRight: 10, 
+  },
+  title: {
+    fontSize: 17,
+    fontFamily: 'Poppins_600SemiBold',
+    color: '#13547D',
+    flexWrap: 'wrap',
+  },
+  subtitle: {
+    fontSize: 13,
+    fontFamily: 'Poppins_400Regular',
+    color: '#13547D',
+    marginVertical: 4,
   },
 });
 

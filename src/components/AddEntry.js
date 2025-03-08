@@ -1,121 +1,490 @@
-import React, { useState, useEffect } from 'react';
-import {
-  Modal,
-  View,
-  Text,
-  TextInput,
-  StyleSheet,
-  TouchableOpacity,
-  Alert,
-  Image,
-} from 'react-native';
-import { createEntry, updateEntry } from '../api';
+import React, { useState, useEffect, useCallback } from 'react';
+import { Modal, View, Text, TextInput, StyleSheet, TouchableOpacity, Alert, Image, ScrollView, FlatList, ActivityIndicator, BackHandler, Switch } from 'react-native';
+import { createEntry, updateEntry, fetchLocations } from '../api';
 import { Ionicons } from '@expo/vector-icons';
 import * as ImagePicker from 'expo-image-picker';
-import { GooglePlacesAutocomplete } from 'react-native-google-places-autocomplete';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import Tooltip from './Tooltip';
 
 const AddEntry = ({ visible, onClose, journalId, entry }) => {
   const [description, setDescription] = useState('');
   const [dateTime, setDateTime] = useState(new Date());
   const [location, setLocation] = useState(null);
   const [locationName, setLocationName] = useState('');
-  const [entryImage, setEntryImage] = useState(null);
+  const [locationId, setLocationId] = useState(null);
+  const [entryImages, setEntryImages] = useState([]);
   const [locationModalVisible, setLocationModalVisible] = useState(false);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [locations, setLocations] = useState([]);
+  const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState(null);
+  const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
+  const [tooltipVisible, setTooltipVisible] = useState(false);
+  const [tooltipText, setTooltipText] = useState('');
+  const [tooltipPosition, setTooltipPosition] = useState('bottom');
+  const [draftSaved, setDraftSaved] = useState(false);
+  const [hasDraft, setHasDraft] = useState(false);
+  const [displayImagesInRecommendation, setDisplayImagesInRecommendation] = useState(true);
+  const [imageOptionsVisible, setImageOptionsVisible] = useState(false);
+  
+  const [initialData, setInitialData] = useState({
+    description: '',
+    locationName: '',
+    locationId: null,
+    entryImages: [],
+    displayImagesInRecommendation: true,
+  });
 
-  const GOOGLE_API_KEY = 'AIzaSyAdI2mDEQkVWZ9XVPb5gh57nNuga6_nuUg';
+  const loadLocations = async () => {
+    setIsLoading(true);
+    setError(null);
+    try {
+      const data = await fetchLocations();
+      setLocations(data);
+    } catch (err) {
+      setError('Failed to load locations. Please try again.');
+      showTooltip('Failed to load locations. Please try again.', 'top');
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    const checkForDrafts = async () => {
+      if (entry) return; 
+      
+      try {
+        const draft = await AsyncStorage.getItem(`draft_${journalId}`);
+        if (draft) {
+          setHasDraft(true);
+        }
+      } catch (error) {
+        console.error('Error checking for drafts:', error);
+      }
+    };
+    
+    if (visible) {
+      checkForDrafts();
+    }
+  }, [journalId, visible, entry]);
+
+  useEffect(() => {
+    if (locationModalVisible) {
+      loadLocations();
+    }
+  }, [locationModalVisible]);
 
   useEffect(() => {
     if (visible && !entry) {
       resetFields();
+      setInitialData({
+        description: '',
+        locationName: '',
+        locationId: null,
+        entryImages: [],
+        displayImagesInRecommendation: true,
+      });
     }
 
     if (entry) {
-      setDescription(entry.entry_description || '');
+      const entryDesc = entry.entry_description || '';
+      const entryLocationName = entry.entry_location_name || '';
+      const entryLocationId = entry.location_id || null;
+      const parsedLocation = entry.entry_location ? JSON.parse(entry.entry_location) : null;
+      const showInRecommendation = entry.display_images_in_recommendation !== false; // Default to true if not set
+      
+      setDescription(entryDesc);
       setDateTime(new Date(entry.entry_datetime || Date.now()));
-      setLocation(entry.entry_location ? JSON.parse(entry.entry_location) : null);
-      setLocationName(entry.entry_location_name || '');
+      setLocation(parsedLocation);
+      setLocationName(entryLocationName);
+      setLocationId(entryLocationId);
+      setDisplayImagesInRecommendation(showInRecommendation);
 
-      if (entry.entry_image && entry.entry_image !== 'null') {
-        const imageUrl = entry.entry_image.startsWith('http') || entry.entry_image.startsWith('/uploads') 
-          ? `http://192.168.137.221:3000${entry.entry_image}` 
-          : entry.entry_image;
-        setEntryImage(imageUrl);
-      } else {
-        setEntryImage(null);
+      let images = [];
+      if (entry.entry_images && entry.entry_images !== 'null') {
+        images = JSON.parse(entry.entry_images).map(img => 
+          img.startsWith('http') ? img : `http://192.168.1.3:3000${img}`
+        );
+      }
+      setEntryImages(images);
+      setInitialData({
+        description: entryDesc,
+        locationName: entryLocationName,
+        locationId: entryLocationId,
+        entryImages: images,
+        displayImagesInRecommendation: showInRecommendation,
+      });
+      
+      // Show image options if entry has images
+      if (images.length > 0) {
+        setImageOptionsVisible(true);
       }
     }
+    
+    setHasUnsavedChanges(false);
   }, [entry, visible]);
-
-  const resetFields = () => {
-    setDescription('');
-    setLocation(null);
-    setLocationName('');
-    setEntryImage(null);
-  };
-
-  const handleSave = async () => {
-    try {
-      if (!description.trim()) {
-        Alert.alert('Validation Error', 'Description cannot be empty.');
-        return;
-      }
-
-      const entryData = {
-        journal_id: journalId,
-        entry_description: description,
-        entry_datetime: dateTime.toISOString(),
-        entry_location: location ? JSON.stringify(location) : null,
-        entry_location_name: locationName || '',
-        entry_image: entryImage ? entryImage : null,
-      };
-
-      if (entry) {
-        await updateEntry(entry.entry_id, entryData);
-        Alert.alert('Success', 'Entry updated successfully.');
-      } else {
-        await createEntry(entryData);
-        Alert.alert('Success', 'Entry created successfully.');
-      }
-
-      onClose();
-      resetFields();
-    } catch (error) {
-      console.error('Error saving entry:', error);
-      Alert.alert('Error', 'An error occurred while saving the entry.');
+  
+  useEffect(() => {
+    if (visible) {
+      const hasChanges = 
+        description !== initialData.description ||
+        locationName !== initialData.locationName ||
+        locationId !== initialData.locationId ||
+        displayImagesInRecommendation !== initialData.displayImagesInRecommendation ||
+        JSON.stringify(entryImages) !== JSON.stringify(initialData.entryImages);
+      
+      setHasUnsavedChanges(hasChanges);
     }
-  };
+  }, [description, locationName, locationId, entryImages, displayImagesInRecommendation, visible, initialData]);
+
+  useEffect(() => {
+    const backAction = () => {
+      if (visible && hasUnsavedChanges) {
+        showUnsavedChangesAlert();
+        return true; 
+      }
+      return false;
+    };
+
+    const backHandler = BackHandler.addEventListener(
+      'hardwareBackPress',
+      backAction
+    );
+
+    return () => backHandler.remove();
+  }, [visible, hasUnsavedChanges]);
+
+  useEffect(() => {
+    if (!visible || !hasUnsavedChanges) return;
+    
+    const interval = setInterval(() => {
+      saveDraft();
+    }, 30000);
+    
+    return () => clearInterval(interval);
+  }, [visible, hasUnsavedChanges, description, locationName, locationId, entryImages, displayImagesInRecommendation]);
 
   useEffect(() => {
     const interval = setInterval(() => setDateTime(new Date()), 1000);
     return () => clearInterval(interval);
   }, []);
 
-  const pickImage = async () => {
+  const saveDraft = useCallback(() => {
+    if (!description && !locationName && entryImages.length === 0) return;
+    if (entry) return; 
+    
+    const draftData = {
+      description,
+      locationName,
+      locationId,
+      location,
+      entryImages,
+      displayImagesInRecommendation,
+      dateTime: dateTime.toISOString()
+    };
+    
+    try {
+      AsyncStorage.setItem(`draft_${journalId}`, JSON.stringify(draftData));
+      setDraftSaved(true);
+      
+      setTimeout(() => {
+        setDraftSaved(false);
+      }, 2000);
+    } catch (error) {
+      console.error('Error saving draft:', error);
+    }
+  }, [description, locationName, locationId, location, entryImages, displayImagesInRecommendation, dateTime, journalId, entry]);
+
+  const loadDraft = async () => {
+    try {
+      const draftData = await AsyncStorage.getItem(`draft_${journalId}`);
+      if (draftData) {
+        const parsed = JSON.parse(draftData);
+        setDescription(parsed.description || '');
+        setLocationName(parsed.locationName || '');
+        setLocationId(parsed.locationId);
+        setLocation(parsed.location);
+        setEntryImages(parsed.entryImages || []);
+        setDisplayImagesInRecommendation(parsed.displayImagesInRecommendation !== false); // Default to true
+        setDateTime(new Date(parsed.dateTime || Date.now()));
+        setHasDraft(false);
+        
+        // Show image options if draft has images
+        if (parsed.entryImages && parsed.entryImages.length > 0) {
+          setImageOptionsVisible(true);
+        }
+      }
+    } catch (error) {
+      console.error('Error loading draft:', error);
+      showTooltip('Error loading draft', 'top');
+    }
+  };
+
+  const discardDraft = async () => {
+    try {
+      await AsyncStorage.removeItem(`draft_${journalId}`);
+      setHasDraft(false);
+    } catch (error) {
+      console.error('Error removing draft:', error);
+    }
+  };
+
+  const resetFields = () => {
+    setDescription('');
+    setLocation(null);
+    setLocationName('');
+    setLocationId(null);
+    setEntryImages([]);
+    setSearchQuery('');
+    setDisplayImagesInRecommendation(true);
+    setImageOptionsVisible(false);
+  };
+
+  const showTooltip = (text, position = 'bottom') => {
+    setTooltipText(text);
+    setTooltipPosition(position);
+    setTooltipVisible(true);
+    
+    setTimeout(() => {
+      setTooltipVisible(false);
+    }, 3000);
+  };
+
+  const showUnsavedChangesAlert = () => {
+    Alert.alert(
+      'Unsaved Changes',
+      'You have unsaved changes. Do you want to save before exiting?',
+      [
+        {
+          text: 'Discard',
+          style: 'destructive',
+          onPress: () => {
+            resetFields();
+            if (!entry) {
+              saveDraftBeforeDiscard();
+            }
+            onClose();
+          },
+        },
+        { 
+          text: 'Cancel', 
+          style: 'cancel' 
+        },
+        {
+          text: 'Save & Exit',
+          style: 'default',
+          onPress: handleSave,
+        },
+      ]
+    );
+  };
+
+  const saveDraftBeforeDiscard = () => {
+    if (description || locationName || entryImages.length > 0) {
+      saveDraft();
+      showTooltip('Changes saved as draft', 'top');
+    }
+  };
+
+  const handleClose = () => {
+    if (hasUnsavedChanges) {
+      showUnsavedChangesAlert();
+    } else {
+      onClose();
+    }
+  };
+
+  const handleSave = async () => {
+    try {
+      if (!description.trim()) {
+        showTooltip('Description cannot be empty', 'top');
+        return;
+      }
+  
+      const entryData = {
+        journal_id: journalId,
+        entry_description: description,
+        entry_datetime: dateTime.toISOString().slice(0,19).replace("T"," "),
+        entry_location: location ? JSON.stringify(location) : null,
+        entry_location_name: locationName || '',
+        location_id: locationId,
+        entry_images: entryImages.length > 0 ? entryImages : [],
+        display_images_in_recommendation: displayImagesInRecommendation,
+      };
+      
+      if (entry) {
+        await updateEntry(entry.entry_id, entryData);
+        showTooltip('Entry updated successfully');
+      } else {
+        await createEntry(entryData);
+        showTooltip('Entry created successfully');
+        discardDraft();
+      }
+  
+      setHasUnsavedChanges(false);
+      onClose();
+      resetFields();
+    } catch (error) {
+      console.error('🚨 Error saving entry:', error);
+      showTooltip('Error saving entry. Please try again.');
+    }
+  };
+
+  const pickImages = async () => {
     const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
     if (status !== 'granted') {
-      Alert.alert('Permission Denied', 'Camera roll permissions are required to select an image.');
+      showTooltip('Camera roll permissions are required to select images');
       return;
     }
 
-    const result = await ImagePicker.launchImageLibraryAsync({
-      mediaTypes: ImagePicker.MediaTypeOptions.Images,
-      allowsEditing: true,
-      aspect: [4, 3],
-      quality: 1,
-    });
+    try {
+      const result = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: ImagePicker.MediaTypeOptions.Images,
+        allowsMultipleSelection: true,
+        selectionLimit: 5,
+        aspect: [4, 3],
+        quality: 1,
+      });
 
-    if (!result.canceled) {
-      setEntryImage(result.assets[0].uri);
+      if (!result.canceled) {
+        const unsupportedFormats = result.assets.filter(asset => 
+          !asset.uri.toLowerCase().endsWith('.jpg') && 
+          !asset.uri.toLowerCase().endsWith('.png') && 
+          !asset.uri.toLowerCase().endsWith('.jpeg')
+        );
+        
+        if (unsupportedFormats.length > 0) {
+          showTooltip('Only JPG and PNG formats are supported');
+          return;
+        }
+        
+        if (entryImages.length + result.assets.length > 5) {
+          showTooltip('Maximum 5 images allowed');
+          const remaining = 5 - entryImages.length;
+          const newImages = result.assets.slice(0, remaining).map(asset => asset.uri);
+          setEntryImages(prevImages => [...prevImages, ...newImages]);
+          return;
+        }
+        
+        const newImages = result.assets.map(asset => asset.uri);
+        setEntryImages(prevImages => [...prevImages, ...newImages]);
+        
+        // Show image options if this is the first image added
+        if (entryImages.length === 0 && newImages.length > 0) {
+          setImageOptionsVisible(true);
+        }
+      }
+    } catch (error) {
+      console.error('Error picking images:', error);
+      showTooltip('Error selecting images');
     }
   };
 
-  const clearImage = () => {
-    setEntryImage(null);
+  const removeImage = (index) => {
+    setEntryImages(prevImages => prevImages.filter((_, i) => i !== index));
+    // If removing the last image, reset the image options visibility
+    if (entryImages.length === 1) {
+      setImageOptionsVisible(false);
+    }
+  };
+
+  const filteredLocations = locations.filter(loc => 
+    loc.location_place.toLowerCase().includes(searchQuery.toLowerCase()) ||
+    loc.location_name.toLowerCase().includes(searchQuery.toLowerCase())
+  );
+
+  const renderLocationItem = ({ item }) => (
+    <TouchableOpacity
+      style={styles.locationItem}
+      onPress={() => {
+        setLocation({
+          latitude: item.latitude,
+          longitude: item.longitude,
+        });
+        setLocationName(`${item.location_name}, ${item.location_place}`);
+        setLocationId(item.location_id);
+        setLocationModalVisible(false);
+        setSearchQuery('');
+      }}
+    >
+      <Ionicons name="location-sharp" size={25} color="#666" style={styles.locationIcon} />
+      <View style={styles.locationTextContainer}>
+        <Text style={styles.locationPlace}>{item.location_name}</Text>
+        <Text style={styles.locationDetail}>{item.location_place}</Text>
+      </View>
+    </TouchableOpacity>
+  );
+
+  const renderLocationList = () => {
+    if (isLoading) {
+      return (
+        <View style={styles.loadingContainer}>
+          <ActivityIndicator size="large" color="#5a67d8" />
+          <Text style={styles.loadingText}>Loading locations...</Text>
+        </View>
+      );
+    }
+
+    if (error) {
+      return (
+        <View style={styles.errorContainer}>
+          <Text style={styles.errorText}>{error}</Text>
+          <TouchableOpacity style={styles.retryButton} onPress={loadLocations}>
+            <Text style={styles.retryButtonText}>Retry</Text>
+          </TouchableOpacity>
+        </View>
+      );
+    }
+
+    if (filteredLocations.length === 0) {
+      return (
+        <View style={styles.emptyContainer}>
+          <Text style={styles.emptyText}>No locations found matching "{searchQuery}"</Text>
+        </View>
+      );
+    }
+
+    return (
+      <FlatList
+        data={filteredLocations}
+        renderItem={renderLocationItem}
+        keyExtractor={(item) => `${item.location_id}`}
+        style={styles.locationList}
+        ItemSeparatorComponent={() => <View style={styles.separator} />}
+      />
+    );
+  };
+
+  const toggleImageOptions = () => {
+    setImageOptionsVisible(!imageOptionsVisible);
   };
 
   return (
-    <Modal visible={visible} animationType="slide" onRequestClose={onClose}>
+    <Modal visible={visible} animationType="slide" onRequestClose={handleClose}>
       <View style={styles.container}>
+        {hasDraft && (
+          <View style={styles.draftNotice}>
+            <Text style={styles.draftText}>You have an unsaved draft</Text>
+            <View style={styles.draftButtons}>
+              <TouchableOpacity onPress={loadDraft} style={styles.draftButton}>
+                <Text style={styles.draftButtonText}>Load Draft</Text>
+              </TouchableOpacity>
+              <TouchableOpacity 
+                onPress={discardDraft} 
+                style={[styles.draftButton, styles.discardButton]}
+              >
+                <Text style={styles.draftButtonText}>Discard</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        )}
+
+        {draftSaved && (
+          <View style={styles.draftSavedIndicator}>
+            <Text style={styles.draftSavedText}>Draft saved</Text>
+          </View>
+        )}
+
         <Text style={styles.title}>{entry ? 'Edit Entry' : 'New Entry'}</Text>
 
         <TextInput
@@ -128,35 +497,77 @@ const AddEntry = ({ visible, onClose, journalId, entry }) => {
         />
 
         <TouchableOpacity style={styles.addButton} onPress={() => setLocationModalVisible(true)}>
-          <Ionicons name="location-sharp" size={20} color="#000" />
+          <Ionicons name="location-sharp" size={20} color="#13547D" />
           <Text style={styles.addButtonText}>
             {locationName ? locationName : 'Add Location'} 
           </Text>
         </TouchableOpacity>
 
-        <TouchableOpacity style={styles.addButton} onPress={pickImage}>
-          <Ionicons name="images" size={20} color="#000" />
+        <TouchableOpacity 
+          style={styles.addButton} 
+          onPress={pickImages}
+        >
+          <Ionicons name="images" size={20} color="#13547D" />
           <Text style={styles.addButtonText}>
-            {entryImage ? 'Change Image' : 'Add Image'}
+            {entryImages.length > 0 
+              ? `Images (${entryImages.length}/5)` 
+              : 'Add Images'}
           </Text>
+          {entryImages.length > 0 && (
+            <TouchableOpacity 
+              onPress={toggleImageOptions}
+              style={styles.imageSettingsButton}
+            >
+              <Ionicons name="settings-outline" size={16} color="#666" />
+            </TouchableOpacity>
+          )}
         </TouchableOpacity>
 
-        {entryImage && (
-          <View style={styles.imagePreviewContainer}>
-            <Image source={{ uri: entryImage }} style={styles.imagePreview} />
-            <TouchableOpacity onPress={clearImage} style={styles.clearImageButton}>
-              <Ionicons name="close" size={20} color="#fff" />
-            </TouchableOpacity>
+        {imageOptionsVisible && entryImages.length > 0 && (
+          <View style={styles.imageOptionsContainer}>
+            <Text style={styles.imageOptionsTitle}>Image Privacy Settings</Text>
+            <View style={styles.optionRow}>
+              <Text style={styles.optionText}>Share my photos with other travelers</Text>
+              <Switch
+                value={displayImagesInRecommendation}
+                onValueChange={setDisplayImagesInRecommendation}
+                trackColor={{ false: "#767577", true: "#13547D" }}
+                thumbColor="#f4f3f4"
+              />
+            </View>
+            <Text style={styles.optionDescription}>
+              {displayImagesInRecommendation 
+                ? "Your photos will be visible to other users when this location is recommended" 
+                : "Your photos will remain private and won't be shown to other users"}
+            </Text>
           </View>
+        )}
+
+        {entryImages.length > 0 && (
+          <ScrollView horizontal style={styles.imagePreviewScroll}>
+            {entryImages.map((image, index) => (
+              <View key={index} style={styles.imagePreviewContainer}>
+                <Image source={{ uri: image }} style={styles.imagePreview} />
+                <TouchableOpacity 
+                  onPress={() => removeImage(index)} 
+                  style={styles.clearImageButton}
+                >
+                  <Ionicons name="close" size={20} color="#fff" />
+                </TouchableOpacity>
+                {index === 0 && !displayImagesInRecommendation && (
+                  <View style={styles.privateImageBadge}>
+                    <Ionicons name="lock-closed" size={14} color="#fff" />
+                  </View>
+                )}
+              </View>
+            ))}
+          </ScrollView>
         )}
 
         <View style={styles.buttonContainer}>
           <TouchableOpacity
             style={[styles.button, styles.cancelButton]}
-            onPress={() => {
-              onClose();
-              resetFields();
-            }}
+            onPress={handleClose}
           >
             <Text style={styles.cancelButtonText}>Cancel</Text>
           </TouchableOpacity>
@@ -165,34 +576,34 @@ const AddEntry = ({ visible, onClose, journalId, entry }) => {
           </TouchableOpacity>
         </View>
 
-        {/* Location Autocomplete Modal */}
+        <Tooltip
+          visible={tooltipVisible}
+          text={tooltipText}
+          position={tooltipPosition}
+          onHide={() => setTooltipVisible(false)}
+        />
+
         <Modal visible={locationModalVisible} animationType="slide" onRequestClose={() => setLocationModalVisible(false)}>
           <View style={styles.locationModal}>
-            <Text style={styles.locationTitle}>Search for a Location</Text>
+            <Text style={styles.locationTitle}>Select a Location</Text>
 
-            <GooglePlacesAutocomplete
-              placeholder="Search here. . ."
-              fetchDetails={true}
-              onPress={(data, details) => {
-                setLocation({
-                  latitude: details.geometry.location.lat,
-                  longitude: details.geometry.location.lng,
-                });
-                setLocationName(data.description);
-                setLocationModalVisible(false);
-              }}
-              query={{
-                key: GOOGLE_API_KEY,
-                language: 'en',
-              }}
-              styles={{
-                textInput: styles.locationSearch,
-                container: { flex: 1, marginBottom: 20 },
-                listView: { backgroundColor: 'white' },
-              }}
+            <TextInput
+              style={styles.searchInput}
+              placeholder="Search locations..."
+              value={searchQuery}
+              onChangeText={setSearchQuery}
+              autoCapitalize="none"
             />
 
-            <TouchableOpacity onPress={() => setLocationModalVisible(false)} style={styles.closeModalButton}>
+            {renderLocationList()}
+
+            <TouchableOpacity 
+              style={styles.closeModalButton}
+              onPress={() => {
+                setLocationModalVisible(false);
+                setSearchQuery('');
+              }}
+            >
               <Text style={styles.closeModalButtonText}>Close</Text>
             </TouchableOpacity>
           </View>
@@ -238,23 +649,62 @@ const styles = StyleSheet.create({
     fontSize: 15,
     fontFamily: 'Poppins_400Regular',
     color: '#333',
+    flex: 1,
   },
-  imagePreviewContainer: {
+  imageSettingsButton: {
+    padding: 8,
+  },
+  imageOptionsContainer: {
+    backgroundColor: '#f9f9f9',
+    padding: 10,
+    borderRadius: 8,
+    marginBottom: 5,
+    borderWidth: 1,
+    borderColor: '#e0e0e0',
+  },
+  imageOptionsTitle: {
+    fontSize: 16,
+    color: '#333',
+    fontFamily: 'Poppins_600SemiBold',
+  },
+  optionRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
     alignItems: 'center',
+    marginBottom: 5,
+  },
+  optionText: {
+    fontSize: 14,
+    color: '#333',
+    fontFamily: 'Poppins_400Regular',
+  },
+  optionDescription: {
+    fontSize: 12,
+    color: '#666',
+    fontFamily: 'Poppins_400Regular',
+    fontStyle: 'italic',
+  },
+  imagePreviewScroll: {
+    flexGrow: 0,
     marginVertical: 10,
   },
+  imagePreviewContainer: {
+    marginRight: 10,
+    position: 'relative',
+  },
   imagePreview: {
-    width: 180,
-    height: 180,
+    width: 100,
+    height: 100,
+    borderRadius: 8,
   },
   clearImageButton: {
     position: 'absolute',
     top: -5,
-    right: 5,
+    right: -5,
     backgroundColor: 'rgba(0,0,0,0.7)',
-    borderRadius: 15,
-    width: 30,
-    height: 30,
+    borderRadius: 12,
+    width: 24,
+    height: 24,
     justifyContent: 'center',
     alignItems: 'center',
   },
@@ -270,7 +720,7 @@ const styles = StyleSheet.create({
     marginHorizontal: 5,
   },
   saveButton: {
-    backgroundColor: '#5a67d8',
+    backgroundColor: '#237CA2',
   },
   cancelButton: {
     backgroundColor: '#fff',
@@ -297,25 +747,147 @@ const styles = StyleSheet.create({
     marginBottom: 20,
     fontFamily: 'Poppins_600SemiBold',
   },
-  locationSearch: {
+  searchInput: {
     height: 40,
     borderWidth: 1,
     borderColor: '#dcdcdc',
+    borderRadius: 8,
     padding: 10,
-    marginBottom: 20,
+    marginBottom: 15,
     fontSize: 15,
     fontFamily: 'Poppins_400Regular',
   },
+  locationList: {
+    flex: 1,
+  },
+  locationItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    padding: 15,
+  },
+  locationIcon: {
+    marginRight: 15,
+  },
+  locationTextContainer: {
+    flex: 1,
+  },
+  locationPlace: {
+    fontSize: 16,
+    fontFamily: 'Poppins_600SemiBold',
+    color: '#333',
+  },
+  locationDetail: {
+    fontSize: 14,
+    fontFamily: 'Poppins_400Regular',
+    color: '#666',
+    marginTop: 2,
+  },
+  separator: {
+    height: 1,
+    backgroundColor: '#f0f0f0',
+  },
   closeModalButton: {
     padding: 15,
-    backgroundColor: '#5a67d8',
+    backgroundColor: '#13547D',
     borderRadius: 8,
-    marginBottom: 50,
+    marginTop: 15,
   },
   closeModalButtonText: {
     color: '#fff',
     fontSize: 14,
     fontFamily: 'Poppins_400Regular',
+    textAlign: 'center',
+  },
+  loadingContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 20,
+  },
+  loadingText: {
+    marginTop: 10,
+    fontSize: 14,
+    fontFamily: 'Poppins_400Regular',
+    color: '#666',
+  },
+  errorContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 20,
+  },
+  errorText: {
+    fontSize: 14,
+    fontFamily: 'Poppins_400Regular',
+    color: '#dc2626',
+    marginBottom: 10,
+    textAlign: 'center',
+  },
+  retryButton: {
+    padding: 10,
+    backgroundColor: '#5a67d8',
+    borderRadius: 8,
+  },
+  retryButtonText: {
+    color: '#fff',
+    fontSize: 14,
+    fontFamily: 'Poppins_400Regular',
+  },
+  draftNotice: {
+    backgroundColor: '#f8f4e3',
+    padding: 12,
+    borderRadius: 8,
+    marginBottom: 15,
+    borderLeftWidth: 4,
+    borderLeftColor: '#13547D',
+  },
+  draftText: {
+    fontWeight: '500',
+    marginBottom: 8,
+  },
+  draftButtons: {
+    flexDirection: 'row',
+    justifyContent: 'flex-end',
+  },
+  draftButton: {
+    backgroundColor: '#13547D',
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 4,
+    marginLeft: 10,
+  },
+  draftButtonText: {
+    color: '#fff',
+    fontWeight: '500',
+  },
+  discardButton: {
+    backgroundColor: '#888',
+  },
+  draftSavedIndicator: {
+    position: 'absolute',
+    top: 10,
+    right: 10,
+    backgroundColor: 'rgba(0, 0, 0, 0.7)',
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 16,
+    zIndex: 999,
+  },
+  draftSavedText: {
+    color: '#fff',
+    fontSize: 12,
+  },
+  emptyContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 20,
+  },
+  emptyText: {
+    fontSize: 14,
+    fontFamily: 'Poppins_400Regular',
+    color: '#666',
+    textAlign: 'center',
   },
 });
 

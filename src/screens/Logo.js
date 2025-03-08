@@ -6,7 +6,7 @@ const Logo = ({ navigation }) => {
   useEffect(() => {
     const timer = setTimeout(() => {
       navigation.replace('GetStarted');
-    }, 3000);
+    }, 4000);
 
     return () => clearTimeout(timer);
   }, [navigation]);
@@ -22,7 +22,7 @@ const Logo = ({ navigation }) => {
 
   return (
     <View style={styles.container}>
-      <Image source={require('../../assets/logo.png')} style={styles.logo} />
+      <Image source={require('../../assets/djournal-pin.png')} style={styles.logo} />
       <Text style={styles.paragraph}>
       A mobile application for digital journaling with mood tracking using natural language processing.
       </Text>
@@ -41,7 +41,7 @@ const styles = StyleSheet.create({
     width: 250,
     height: 150,
     resizeMode: 'cover',
-    marginBottom: 100,
+    marginBottom: 150,
   },
   paragraph: {
     fontSize: 12,
@@ -49,7 +49,7 @@ const styles = StyleSheet.create({
     marginHorizontal: 35,
     position: 'absolute',
     bottom: 50,
-    color: '#525fe1',
+    color: '#0F2236',
     fontFamily: 'Poppins_400Regular',
   },
 });

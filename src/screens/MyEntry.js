@@ -1,16 +1,16 @@
 import React, { useEffect, useState } from 'react';
-import { View, Text, FlatList, StyleSheet, TouchableOpacity, Image, RefreshControl, Alert, TextInput, Modal, TouchableWithoutFeedback, Keyboard } from 'react-native';
+import { View, Text, FlatList, StyleSheet, TouchableOpacity, RefreshControl, Alert, TextInput, TouchableWithoutFeedback, Keyboard } from 'react-native';
 import { useRoute, useNavigation } from '@react-navigation/native';
 import AddEntry from '../components/AddEntry';
 import FontAwesome5 from 'react-native-vector-icons/FontAwesome5';
 import { useFonts, Poppins_400Regular, Poppins_600SemiBold } from '@expo-google-fonts/poppins';
-import api from '../../network/api';
 import DateTimePicker from '@react-native-community/datetimepicker';
+import { fetchEntries as apiFetchEntries, deleteEntry } from '../api';
 
 const MyEntry = () => {
   const route = useRoute();
   const navigation = useNavigation();
-  const { journalId } = route.params;
+  const { journalId, journalTitle } = route.params;
   const [entries, setEntries] = useState([]);
   const [filteredEntries, setFilteredEntries] = useState([]);
   const [isRefreshing, setIsRefreshing] = useState(false);
@@ -21,6 +21,9 @@ const MyEntry = () => {
   const [selectedEntryId, setSelectedEntryId] = useState(null);
   const [entryToEdit, setEntryToEdit] = useState(null);
   const [openedEntryId, setOpenedEntryId] = useState(null);
+  const [deletedEntry, setDeletedEntry] = useState(null);
+  const [showUndoMessage, setShowUndoMessage] = useState(false);
+  const [undoTimer, setUndoTimer] = useState(null);
 
   const [fontsLoaded] = useFonts({
     Poppins_400Regular,
@@ -33,7 +36,9 @@ const MyEntry = () => {
 
   const fetchEntries = async () => {
     try {
-      const response = await api.get(`/api/entries/${journalId}`);
+      console.log('Fetching entries for journalId:', journalId);
+      const response = await apiFetchEntries(journalId);
+      console.log('API response:', response);
       setEntries(response.data);
       setFilteredEntries(response.data);
       setIsRefreshing(false);
@@ -119,31 +124,69 @@ const MyEntry = () => {
     setEntryToEdit(entry);
   };
 
+  const performDelete = async (entryId) => {
+    try {
+      await deleteEntry(entryId);
+      fetchEntries();
+    } catch (error) {
+      console.error('Error deleting entry:', error.message);
+      alert('Failed to delete entry');
+    }
+  };  
+
   const handleDelete = (entryId) => {
     Alert.alert(
-      'Confirm Deletion',
-      'Are you sure you want to delete this entry?',
+      'Delete Entry',
+      'Are you sure you want to delete this journal entry?',
       [
-        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Cancel',
+          style: 'cancel',
+        },
         {
           text: 'Delete',
           style: 'destructive',
-          onPress: async () => {
-            try {
-              const response = await api.delete(`/api/entries/${entryId}`);
-              if (response.status === 200) {
-                fetchEntries();
-                alert('Entry deleted successfully');
-              }
-            } catch (error) {
-              console.error('Error deleting entry:', error.message);
-              alert('Failed to delete entry');
+          onPress: () => {
+            const entryToDelete = entries.find(entry => entry.entry_id === entryId);
+            
+            setDeletedEntry(entryToDelete);
+            
+            const updatedEntries = entries.filter(entry => entry.entry_id !== entryId);
+            setEntries(updatedEntries);
+            setFilteredEntries(updatedEntries);
+            
+            setShowUndoMessage(true);
+            
+            if (undoTimer) {
+              clearTimeout(undoTimer);
             }
+            
+            const timer = setTimeout(() => {
+              performDelete(entryId);
+              setShowUndoMessage(false);
+              setDeletedEntry(null);
+            }, 3000);
+            
+            setUndoTimer(timer);
           },
         },
-      ],
-      { cancelable: false }
+      ]
     );
+  };
+
+  const handleUndo = () => {
+    if (deletedEntry) {
+      if (undoTimer) {
+        clearTimeout(undoTimer);
+      }
+      
+      const restoredEntries = [...entries, deletedEntry];
+      setEntries(restoredEntries);
+      setFilteredEntries(restoredEntries);
+      
+      setShowUndoMessage(false);
+      setDeletedEntry(null);
+    }
   };
 
   const EntryOptionsDropdown = ({ entry, onClose }) => {
@@ -156,7 +199,7 @@ const MyEntry = () => {
             onClose();
           }}
         >
-          <FontAwesome5 name="pencil-alt" size={16} color="#525fe1" />
+          <FontAwesome5 name="pencil-alt" size={16} color="#4CAF50" />
           <Text style={styles.dropdownOptionText}>Edit</Text>
         </TouchableOpacity>
         
@@ -174,6 +217,23 @@ const MyEntry = () => {
     );  
   };
 
+  const SentimentBar = ({ percentage, color, label }) => {
+    return (
+      <View style={styles.sentimentBarContainer}>
+        <Text style={styles.sentimentLabel}>{label}:</Text>
+        <View style={styles.sentimentBarBackground}>
+          <View 
+            style={[
+              styles.sentimentBarFill, 
+              { width: `${percentage}%`, backgroundColor: color }
+            ]} 
+          />
+        </View>
+        <Text style={styles.sentimentPercentage}>{percentage.toFixed(1)}%</Text>
+      </View>
+    );
+  };
+
   const renderEntry = ({ item }) => {
     const { formattedDate, formattedTime } = formatDateTime(item.entry_datetime);
     const MAX_DESCRIPTION_LENGTH = 100;
@@ -186,20 +246,25 @@ const MyEntry = () => {
       if (item.sentiment) {
         return (
           <View style={styles.sentimentContainer}>
-            <View style={styles.sentimentPercentages}>
-              <Text style={styles.percentageText}>
-                {'Positive: ' + item.positive_percentage + '%'}
-              </Text>
-              <Text style={styles.percentageText}>
-                {'Negative: ' + item.negative_percentage + '%'}
-              </Text>
-              <Text style={styles.percentageText}>
-                {'Neutral: ' + item.neutral_percentage + '%'}
-              </Text>
-            </View>
+            <SentimentBar 
+              percentage={parseFloat(item.positive_percentage)} 
+              color="#4CAF50" 
+              label="Joyful"
+            />
+            <SentimentBar 
+              percentage={parseFloat(item.neutral_percentage)} 
+              color="#FFC107" 
+              label="Content"
+            />
+            <SentimentBar 
+              percentage={parseFloat(item.negative_percentage)} 
+              color="#FF5252" 
+              label="Uncertain"
+            />
           </View>
         );
       }
+      return null;
     };
   
     return (
@@ -212,7 +277,7 @@ const MyEntry = () => {
                 style={styles.ellipsisButton}
                 onPress={() => setOpenedEntryId(openedEntryId === item.entry_id ? null : item.entry_id)}
               >
-                <FontAwesome5 name="ellipsis-h" size={18} color="#666" />
+                <FontAwesome5 name="ellipsis-h" size={20} color="#666" />
               </TouchableOpacity>
             </View>
 
@@ -224,7 +289,7 @@ const MyEntry = () => {
             )}
 
             {item.entry_location_name && (
-              <Text style={styles.entryLocation}>
+              <Text style={styles.entryLocation}> 
                 at {item.entry_location_name}
               </Text>
             )}
@@ -240,13 +305,13 @@ const MyEntry = () => {
               onPress={() => navigation.navigate('FullEntryView', { entry: item })}
               style={styles.readMoreButton}
             >
-              <FontAwesome5 name="arrow-right" size={16} color="#666" />
+              <Text style={styles.readMoreText}>View All</Text>
             </TouchableOpacity>
           </View>
         </View>
       </TouchableWithoutFeedback>
     );
-  };  
+  };
 
   if (!fontsLoaded) {
     return null;
@@ -256,29 +321,37 @@ const MyEntry = () => {
     <View style={styles.container}>
       <View style={styles.header}>
         <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backButton}>
-          <FontAwesome5 name="arrow-left" size={18} color="#525fe1" />
+          <FontAwesome5 name="arrow-left" size={18} color="#333" />
         </TouchableOpacity>
 
-        <Text style={styles.title}>Entries</Text>
-
+        <Text style={styles.title} 
+          numberOfLines={2} 
+          ellipsizeMode="tail"
+          >
+          {journalTitle}
+        </Text>
         <TouchableOpacity style={styles.fab} onPress={openModal}>
-          <FontAwesome5 name="plus" size={15} color="#fff" />
+          <FontAwesome5 name="plus" size={20} color="#fff" />
         </TouchableOpacity>
       </View>
 
       <View style={styles.filterContainer}>
-        <TextInput
-          style={styles.searchInput}
-          placeholder="Search by location"
-          value={searchLocation}
-          onChangeText={setSearchLocation}
-        />
+        <View style={styles.searchWrapper}>
+          <FontAwesome5 name="search" size={16} color="#888" style={styles.searchIcon} />
+          <TextInput
+            style={styles.searchInput}
+            placeholder="Search by location"
+            placeholderTextColor="#888"
+            value={searchLocation}
+            onChangeText={setSearchLocation}
+          />
+        </View>
         <TouchableOpacity
           style={styles.datePickerButton}
           onPress={() => setShowDatePicker(true)}
         >
           <Text style={styles.datePickerText}>
-            {selectedDate ? selectedDate.toDateString() : 'Select Date'}
+            {selectedDate ? selectedDate.toDateString() : 'Date'}
           </Text>
         </TouchableOpacity>
         {showDatePicker && (
@@ -299,6 +372,7 @@ const MyEntry = () => {
         data={filteredEntries}
         keyExtractor={(item) => item.entry_id.toString()}
         renderItem={renderEntry}
+        contentContainerStyle={styles.flatList}
         refreshControl={
           <RefreshControl
             refreshing={isRefreshing}
@@ -309,9 +383,19 @@ const MyEntry = () => {
           />
         }
         ListEmptyComponent={
-          <Text style={styles.emptyText}>No entries found. Add your first entry!</Text>
+          <Text style={styles.emptyText}>No entries found. Tap  '+'  to add an entry.</Text>
         }
       />
+
+      {showUndoMessage && (
+        <View style={styles.undoContainer}>
+          <Text style={styles.undoText}>Journal entry deleted.</Text>
+          <TouchableOpacity onPress={handleUndo} style={styles.undoButton}>
+            <Text style={styles.undoButtonText}>Undo</Text>
+          </TouchableOpacity>
+        </View>
+      )}
+
       <AddEntry
         visible={isModalVisible}
         onClose={handleEntrySave}
@@ -325,168 +409,254 @@ const MyEntry = () => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#fff',
-    paddingTop: 50,
+    backgroundColor: '#f8f8f8',
   },
-  filterContainer: {
-    flexDirection: 'row',
-    justifyContent: 'flex-end',
-    padding: 10,
-
-  },
-  clearFilterButton: {
-    backgroundColor: '#ff5252',
-    borderRadius: 5,
-    paddingVertical: 8,
-    paddingHorizontal: 15,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  searchInput: {
-    flex: 1,
-    height: 40,
-    borderColor: '#ccc',
-    borderWidth: 1,
-    borderRadius: 5,
-    paddingHorizontal: 10,
-    marginRight: 10,
-    backgroundColor: '#fff',
-  },
-  datePickerButton: {
-    paddingVertical: 10,
-    paddingHorizontal: 15,
-    backgroundColor: '#ddd',
-    borderRadius: 5,
-    marginRight: 5,
-  },
-  datePickerText: {
-    color: '#333',
+  flatList: {
+    paddingBottom: 20,
   },
   header: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
     alignItems: 'center',
-    position: 'relative',
-    padding: 20,
-
+    backgroundColor: '#fff',
+    paddingTop: 50,
+    paddingHorizontal: 20,
+    elevation: 2,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 2,
   },
   backButton: {
-    width: 35,
-    height: 35,
-    borderRadius: 20,
-    justifyContent: 'center',
-    alignItems: 'center',
+    paddingRight: 20,
   },
   title: {
-    fontSize: 20,
+    flex: 1,
     fontFamily: 'Poppins_600SemiBold',
-    color: '#000',
-    textAlign: 'center',
+    fontSize: 20,
+    color: '#333',
+    marginTop: 5,
   },
   fab: {
-    backgroundColor: '#525fe1',
     width: 35,
     height: 35,
     borderRadius: 20,
+    backgroundColor: '#13547D',
     justifyContent: 'center',
     alignItems: 'center',
   },
-  emptyText: {
+  filterContainer: {
+    flexDirection: 'row',
+    padding: 15,
+    backgroundColor: '#fff',
+    borderBottomWidth: 1,
+    borderBottomColor: '#eee',
+    alignItems: 'center',
+  },
+  searchWrapper: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#f2f2f2',
+    borderRadius: 8,
+    paddingHorizontal: 10,
+    height: 40,
+  },
+  searchIcon: {
+    marginRight: 8,
+  },
+  searchInput: {
+    flex: 1,
+    fontFamily: 'Poppins_400Regular',
     fontSize: 14,
-    color: '#666',
-    marginTop: 300,
-    textAlign: 'center',
-    fontFamily: 'Poppins_400Regular',
+    color: '#444',
   },
-  entryHeader: {
-    flexDirection: 'column', 
-    alignItems: 'flex-start', 
-    marginBottom: 20,
+  datePickerButton: {
+    marginLeft: 10,
+    backgroundColor: '#f2f2f2',
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 8,
+    height: 40,
+    justifyContent: 'center',
   },
-  entryDate: {
-    fontSize: 12,
-    color: '#666',
+  datePickerText: {
     fontFamily: 'Poppins_400Regular',
+    fontSize: 14,
+    color: '#444',
   },
-  entryLocation: {
-    fontSize: 12,
-    color: '#888',
-    fontFamily: 'Poppins_400Regular',
-   },
-  entryDescription: {
-    fontSize: 15,
-    marginBottom: 15,
-    color: '#333',
-    fontFamily: 'Poppins_400Regular',
+  clearFilterButton: {
+    marginLeft: 10,
+    backgroundColor: '#aaa',
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   entryItem: {
     backgroundColor: '#fff',
-    padding: 20,
-    marginBottom: 5,
-    borderTopWidth: 1, 
-    borderBottomWidth: 1, 
-    borderColor: '#e0e0e0', 
-  },  
-  sentimentContainer: {
-    marginVertical: 10,
-    borderRadius: 8,
-    marginBottom: 30,
+    borderRadius: 10,
+    marginHorizontal: 15,
+    marginTop: 15,
+    padding: 15,
+    elevation: 2,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.1,
+    shadowRadius: 1,
   },
-  percentageText: {
+  entryHeader: {
+    marginBottom: 20,
+  },
+  dateContainer: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  entryDate: {
+    fontFamily: 'Poppins_600SemiBold',
     fontSize: 14,
-    color: '#555',
+    color: '#333',
+  },
+  ellipsisButton: {
+    padding: 5,
+  },
+  entryLocation: {
     fontFamily: 'Poppins_400Regular',
+    fontSize: 12,
+    color: '#333',
+  },
+  entryDescription: {
+    fontFamily: 'Poppins_400Regular',
+    fontSize: 15,
+    color: '#444',
+    lineHeight: 22,
   },
   entryFooter: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
+    marginTop: 15,
+    paddingTop: 15,
+    borderTopWidth: 1,
+    borderTopColor: '#eee',
   },
   entryTime: {
-    fontSize: 12,
-    color: '#888',
     fontFamily: 'Poppins_400Regular',
+    fontSize: 13,
+    color: '#888',
   },
   readMoreButton: {
-    padding: 8,
-    alignItems: 'center',
-    justifyContent: 'center',
+    backgroundColor: '#f0f0f0',
+    paddingVertical: 6,
+    paddingHorizontal: 12,
+    borderRadius: 15,
   },
-  dateContainer: {
-    flexDirection: 'row', 
-    alignItems: 'center', 
-    justifyContent: 'space-between',
-    width: '100%',
+  readMoreText: {
+    fontFamily: 'Poppins_400Regular',
+    fontSize: 12,
+    color: '#13547D',
   },
   dropdownContainer: {
     position: 'absolute',
-    top: 35,
-    right: 1,
-    backgroundColor: 'white', 
-    borderRadius: 4,
+    right: 0,
+    top: 30,
+    backgroundColor: 'white',
+    borderRadius: 8,
+    elevation: 5,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 3,
+    shadowOpacity: 0.2,
+    shadowRadius: 3,
     zIndex: 1000,
   },
   dropdownOption: {
-    flexDirection: 'row', 
-    alignItems: 'center', 
-    paddingVertical: 10, 
-    paddingHorizontal: 30,
-    borderBottomWidth: 1,
-    borderBottomColor: '#f0f0f0',
-  },
-  dropdownOptionLast: {
-    borderBottomWidth: 0,
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 10,
+    paddingHorizontal: 15,
   },
   dropdownOptionText: {
-    marginLeft: 20, 
-    fontFamily: 'Poppins_400Regular', 
-    color: '#333',
+    fontFamily: 'Poppins_400Regular',
     fontSize: 14,
+    marginLeft: 15,
+  },
+  emptyText: {
+    fontFamily: 'Poppins_400Regular',
+    fontSize: 16,
+    color: '#888',
+    textAlign: 'center',
+    marginTop: 50,
+  },
+  sentimentContainer: {
+    marginTop: 15,
+    backgroundColor: '#f9f9f9',
+    padding: 10,
+    borderRadius: 8,
+  },
+  sentimentBarContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginVertical: 4,
+  },
+  sentimentLabel: {
+    fontFamily: 'Poppins_400Regular',
+    fontSize: 13,
+    color: '#555',
+    width: 70,
+  },
+  sentimentBarBackground: {
+    flex: 1,
+    height: 8,
+    backgroundColor: '#eee',
+    borderRadius: 4,
+    overflow: 'hidden',
+  },
+  sentimentBarFill: {
+    height: '100%',
+    borderRadius: 4,
+  },
+  sentimentPercentage: {
+    fontFamily: 'Poppins_400Regular',
+    fontSize: 12,
+    color: '#555',
+    width: 50,
+    textAlign: 'right',
+    marginLeft: 8,
+  },
+  undoContainer: {
+    position: 'absolute',
+    bottom: 20,
+    left: 20,
+    right: 20,
+    backgroundColor: 'rgba(50, 50, 50, 0.9)',
+    borderRadius: 8,
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingVertical: 12,
+    paddingHorizontal: 20,
+    elevation: 5,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.3,
+    shadowRadius: 4,
+  },
+  undoText: {
+    fontFamily: 'Poppins_400Regular',
+    fontSize: 15,
+    color: '#fff',
+  },
+  undoButton: {
+    backgroundColor: '#525fe1',
+    paddingVertical: 6,
+    paddingHorizontal: 12,
+    borderRadius: 4,
+  },
+  undoButtonText: {
+    fontFamily: 'Poppins_600SemiBold',
+    fontSize: 14,
+    color: '#fff',
   },
 });
 

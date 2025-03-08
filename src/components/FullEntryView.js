@@ -1,10 +1,13 @@
+//FullEntry
 import React, { useState, useEffect } from 'react';
-import { View, Text, Image, StyleSheet, TouchableOpacity, ScrollView, Modal, ImageBackground } from 'react-native';
+import { View, Text, Image, StyleSheet, TouchableOpacity, ScrollView, Modal, ImageBackground, Dimensions, TouchableWithoutFeedback } from 'react-native';
 import { useRoute, useNavigation } from '@react-navigation/native';
 import FontAwesome5 from 'react-native-vector-icons/FontAwesome5';
 import MaterialCommunityIcons from 'react-native-vector-icons/MaterialCommunityIcons';
 import { useFonts, Poppins_400Regular, Poppins_600SemiBold } from '@expo-google-fonts/poppins';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+
+const { width: screenWidth } = Dimensions.get('window');
 
 const FullEntryView = () => {
   const route = useRoute();
@@ -23,6 +26,9 @@ const FullEntryView = () => {
   const [backgroundModalVisible, setBackgroundModalVisible] = useState(false);
   const [customizationModalVisible, setCustomizationModalVisible] = useState(false);
   const [selectedBackground, setSelectedBackground] = useState(null); 
+
+  const [selectedImageIndex, setSelectedImageIndex] = useState(null);
+  const [imageViewerVisible, setImageViewerVisible] = useState(false);
 
   useEffect(() => {
     const loadSettings = async () => {
@@ -89,25 +95,124 @@ const FullEntryView = () => {
     return null;
   }
 
-  const renderSentiment = () => {
-    if (entry.sentiment) {
+  const renderImageGrid = () => {
+    if (!entry.entry_images || entry.entry_images === 'null' || JSON.parse(entry.entry_images).length === 0) {
+      return null;
+    }
+  
+    const images = JSON.parse(entry.entry_images);
+    const imageCount = images.length;
+  
+    if (imageCount === 1) {
       return (
-        <View style={styles.sentimentContainer}>
-          <View style={styles.sentimentPercentages}>
-            <Text style={styles.percentageText}>
-              {'Positive: ' + entry.positive_percentage + '%'}
-            </Text>
-            <Text style={styles.percentageText}>
-              {'Negative: ' + entry.negative_percentage + '%'}
-            </Text>
-            <Text style={styles.percentageText}>
-              {'Neutral: ' + entry.neutral_percentage + '%'}
-            </Text>
-          </View>
-        </View>
+        <TouchableOpacity 
+          onPress={() => {
+            setSelectedImageIndex(0);
+            setImageViewerVisible(true);
+          }}
+        >
+          <Image
+            source={{ 
+              uri: images[0].startsWith('http') 
+                ? images[0] 
+                : `http://192.168.1.3:3000${images[0]}` 
+            }}
+            style={styles.singleImage}
+            resizeMode="cover"
+          />
+        </TouchableOpacity>
       );
     }
-    return null;
+  
+    return (
+      <View style={styles.imageGrid}>
+        {images.map((image, index) => {
+          const isLastImage = index === images.length - 1;
+          const remainingCount = images.length - 4;
+          
+          const imageStyle = [
+            styles.gridImage,
+            imageCount === 2 && styles.twoImagesStyle,
+            imageCount === 3 && styles.threeImagesStyle,
+            imageCount >= 4 && styles.fourPlusImagesStyle,
+          ];
+  
+          return (
+            <TouchableOpacity
+              key={index}
+              style={imageStyle}
+              onPress={() => {
+                setSelectedImageIndex(index);
+                setImageViewerVisible(true);
+              }}
+            >
+              <Image
+                source={{ 
+                  uri: image.startsWith('http') 
+                    ? image 
+                    : `http://192.168.1.3:3000${image}` 
+                }}
+                style={StyleSheet.absoluteFill}
+                resizeMode="cover"
+              />
+              {isLastImage && index >= 4 && remainingCount > 0 && (
+                <View style={styles.remainingCountOverlay}>
+                  <Text style={styles.remainingCountText}>+{remainingCount}</Text>
+                </View>
+              )}
+            </TouchableOpacity>
+          );
+        })}
+      </View>
+    );
+  };
+
+  const ImageViewerModal = () => {
+    if (selectedImageIndex === null) return null;
+    
+    const images = JSON.parse(entry.entry_images);
+    
+    return (
+      <Modal
+        visible={imageViewerVisible}
+        transparent={true}
+        onRequestClose={() => setImageViewerVisible(false)}
+      >
+        <View style={styles.imageViewerContainer}>
+          <TouchableOpacity 
+            style={styles.closeImageViewer}
+            onPress={() => setImageViewerVisible(false)}
+          >
+            <FontAwesome5 name="times" size={24} color="#fff" />
+          </TouchableOpacity>
+          
+          <ScrollView
+            horizontal
+            pagingEnabled
+            showsHorizontalScrollIndicator={false}
+            contentContainerStyle={styles.imageViewerContent}
+            contentOffset={{ x: selectedImageIndex * screenWidth, y: 0 }}
+          >
+            {images.map((image, index) => (
+              <View key={index} style={styles.fullScreenImageContainer}>
+                <Image
+                  source={{ 
+                    uri: image.startsWith('http') 
+                      ? image 
+                      : `http://192.168.1.3:3000${image}` 
+                  }}
+                  style={styles.fullScreenImage}
+                  resizeMode="contain"
+                />
+                <Text style={styles.imageCounter}>
+                  {index + 1} / {images.length}
+                </Text>
+              </View>
+            ))}
+          </ScrollView>
+        </View>
+      </Modal>
+    );
   };
 
   return (
@@ -137,6 +242,8 @@ const FullEntryView = () => {
             
             <ScrollView>
               <View style={styles.entryDetails}>
+                {renderImageGrid()}
+                {ImageViewerModal()}
                 <Text
                   style={[
                     styles.entryDescription,
@@ -150,15 +257,6 @@ const FullEntryView = () => {
                 >
                   {entry.entry_description}
                 </Text>
-  
-                {entry.entry_image && entry.entry_image !== 'null' && (
-                  <Image 
-                    source={{ uri: `http://192.168.137.221:3000${entry.entry_image}` }} 
-                    style={styles.entryImage}
-                  />
-                )}
-  
-                {renderSentiment()}
               </View>
             </ScrollView>
           </View>
@@ -183,6 +281,8 @@ const FullEntryView = () => {
   
           <ScrollView>
             <View style={styles.entryDetails}>
+              {renderImageGrid()}
+              {ImageViewerModal()}
               <Text
                 style={[
                   styles.entryDescription,
@@ -196,72 +296,74 @@ const FullEntryView = () => {
               >
                 {entry.entry_description}
               </Text>
-  
-              {entry.entry_image && entry.entry_image !== 'null' && (
-                <Image 
-                  source={{ uri: `http://192.168.137.221:3000${entry.entry_image}` }} 
-                  style={styles.entryImage}
-                />
-              )}
-  
-              {renderSentiment()}
             </View>
           </ScrollView>
         </View>
       )}
   
-      {/* Modals */}
       <Modal
         animationType="slide"
         transparent={true}
         visible={backgroundModalVisible}
         onRequestClose={() => setBackgroundModalVisible(false)}
       >
-        <View style={styles.modalContainer}>
-          <View style={styles.modalContent}>
-            <Text style={styles.modalTitle}>Customize Background</Text>
-  
-            {/* Background Color Section */}
-            <Text style={styles.sectionTitle}>Background Color</Text>
-            <View style={styles.colorSelectorContainer}>
-              {[
-                '#ffffff', '#FFB3B3', '#D4E9FF', '#D6E6D6', '#FFE4B5',
-                '#FFC1E3', '#FFD1DC', '#E2C2FF', '#B8E8FC', '#D0FFD6',
-              ].map((color) => (
-                <TouchableOpacity
-                  key={color}
-                  onPress={() => saveColor(color)}
-                  style={[styles.colorButton, { backgroundColor: color }]}
-                />
-              ))}
-            </View>
-  
-            {/* Background Image Section */}
-            <Text style={styles.sectionTitle}>Background Image</Text>
-            <View style={styles.imageSelectorContainer}>
-              {[
-                require('../../assets/bg_image1.jpg'),
-                require('../../assets/bg_image2.jpg'),
-                require('../../assets/bg_image3.jpg'),
-                require('../../assets/bg_image4.jpg'),
-                require('../../assets/bg_image5.jpg'),
-                require('../../assets/bg_image6.jpg'),
-              ].map((image, index) => (
-                <TouchableOpacity
-                  key={index}
-                  onPress={() => saveImage(image)}
-                  style={styles.imagePreviewContainer}
-                >
-                  <Image source={image} style={styles.imagePreview} />
-                </TouchableOpacity>
-              ))}
-            </View>
-  
-            <TouchableOpacity onPress={() => setBackgroundModalVisible(false)} style={styles.closeModalButton}>
-              <Text style={styles.closeModalButtonText}>Save</Text>
-            </TouchableOpacity>
+        <TouchableWithoutFeedback onPress={() => setBackgroundModalVisible(false)}>
+          <View style={styles.modalContainer}>
+            <TouchableWithoutFeedback>
+              <View style={styles.modalContent}>
+                <Text style={styles.sectionTitle}>Color</Text>
+                <ScrollView 
+                  horizontal 
+                  showsHorizontalScrollIndicator={false} 
+                  contentContainerStyle={styles.colorScrollContainer}>
+                  {[
+                    '#ffffff', '#FFB3B3', '#D4E9FF', '#D6E6D6', '#FFE4B5',
+                    '#FFC1E3', '#FFD1DC', '#E2C2FF', '#B8E8FC', '#D0FFD6',
+                  ].map((color) => (
+                    <TouchableOpacity
+                      key={color}
+                      onPress={() => saveColor(color)}
+                      style={[styles.colorButton, { backgroundColor: color }]}
+                    >
+                      {backgroundColor === color && (
+                        <View style={styles.checkOverlay}>
+                          <FontAwesome5 name="check" size={16} color="#000" />
+                        </View>
+                      )}
+                    </TouchableOpacity>
+                  ))}
+                </ScrollView>
+
+                <Text style={styles.sectionTitle}>Background</Text>
+                <ScrollView 
+                  horizontal 
+                  showsHorizontalScrollIndicator={false} 
+                  contentContainerStyle={styles.imageScrollContainer}>
+                  {[
+                    require('../../assets/bg_image2.jpg'),
+                    require('../../assets/bg_image3.jpg'),
+                    require('../../assets/bg_image4.jpg'),
+                    require('../../assets/bg_image5.jpg'),
+                    require('../../assets/bg_image6.jpg'),
+                  ].map((image, index) => (
+                    <TouchableOpacity
+                      key={index}
+                      onPress={() => saveImage(image)}
+                      style={styles.imagePreviewContainer}
+                    >
+                      <Image source={image} style={styles.imagePreview} />
+                      {selectedBackground === image && (
+                        <View style={styles.checkOverlayImage}>
+                          <FontAwesome5 name="check" size={20} color="#FFF" />
+                        </View>
+                      )}
+                    </TouchableOpacity>
+                  ))}
+                </ScrollView>
+              </View>
+            </TouchableWithoutFeedback>
           </View>
-        </View>
+        </TouchableWithoutFeedback>
       </Modal>
   
       <Modal
@@ -270,125 +372,121 @@ const FullEntryView = () => {
         visible={customizationModalVisible}
         onRequestClose={() => setCustomizationModalVisible(false)}
       >
-        <View style={styles.modalContainer}>
-          <View style={styles.modalContent}>
-            <Text style={styles.modalTitle}>Customize Entry</Text>
-  
-            {/* Alignment Selection */}
-            <Text style={styles.sectionTitle}>Alignment</Text>
-            <View style={styles.alignmentContainer}>
-              {['left', 'center', 'right', 'justify'].map((align) => (
-                <TouchableOpacity
-                  key={align}
-                  onPress={() => saveAlignment(align)}
-                  style={[
-                    styles.alignmentButton,
-                    align === alignment ? styles.activeButton : null,
-                  ]}
-                >
-                  <FontAwesome5
-                    name={
-                      align === 'left' ? 'align-left' :
-                      align === 'center' ? 'align-center' :
-                      align === 'right' ? 'align-right' :
-                      'align-justify'
-                    }
-                    size={15}
-                    color={align === alignment ? 'blue' : 'black'}
-                  />
-                </TouchableOpacity>
-              ))}
-            </View>
-  
-            {/* Text Case Selection */}
-            <Text style={styles.sectionTitle}>Text Case</Text>
-            <View style={styles.textCaseContainer}>
-              {['normal', 'uppercase', 'lowercase'].map((caseOption) => (
-                <TouchableOpacity
-                  key={caseOption}
-                  onPress={() => saveTextCase(caseOption)}
-                  style={[
-                    styles.textCaseButton,
-                    caseOption === textCase ? styles.activeButton : null,
-                  ]}
-                >
-                  <MaterialCommunityIcons
-                    name={
-                      caseOption === 'normal' ? 'format-letter-case' :
-                      caseOption === 'uppercase' ? 'format-letter-case-upper' :
-                      'format-letter-case-lower'
-                    }
-                    size={28}
-                    color={caseOption === textCase ? 'blue' : 'black'}
-                  />
-                </TouchableOpacity>
-              ))}
-            </View>
-  
-            {/* Font Style Selection */}
-            <Text style={styles.sectionTitle}>Font Style</Text>
-            <View style={styles.fontStyleContainer}>
-              {['normal', 'bold', 'italic'].map((styleOption) => (
-                <TouchableOpacity
-                  key={styleOption}
-                  onPress={() => saveFontStyle(styleOption)}
-                  style={[
-                    styles.fontStyleButton,
-                    styleOption === fontStyle ? styles.activeButton : null,
-                  ]}
-                >
-                  <FontAwesome5
-                    name={
-                      styleOption === 'normal' ? 'font' :
-                      styleOption === 'bold' ? 'bold' :
-                      'italic'
-                    }
-                    size={20}
-                    color={styleOption === fontStyle ? 'blue' : 'black'}
-                  />
-                </TouchableOpacity>
-              ))}
-            </View>
-  
-            <TouchableOpacity onPress={() => setCustomizationModalVisible(false)} style={styles.closeModalButton}>
-              <Text style={styles.closeModalButtonText}>Save</Text>
-            </TouchableOpacity>
+        <TouchableWithoutFeedback onPress={() => setCustomizationModalVisible(false)}>
+          <View style={styles.modalContainer}>
+            <TouchableWithoutFeedback>
+              <View style={styles.modalContent}>
+                <Text style={styles.sectionTitle}>Alignment</Text>
+                <View style={styles.alignmentContainer}>
+                  {['left', 'center', 'right', 'justify'].map((align) => (
+                    <TouchableOpacity
+                      key={align}
+                      onPress={() => saveAlignment(align)}
+                      style={[
+                        styles.alignmentButton,
+                        align === alignment ? styles.activeButton : null,
+                      ]}
+                    >
+                      <FontAwesome5
+                        name={
+                          align === 'left' ? 'align-left' :
+                          align === 'center' ? 'align-center' :
+                          align === 'right' ? 'align-right' :
+                          'align-justify'
+                        }
+                        size={20}
+                        color={align === alignment ? 'white' : 'black'}
+                      />
+                    </TouchableOpacity>
+                  ))}
+                </View>
+
+                <Text style={styles.sectionTitle}>Text Case</Text>
+                <View style={styles.textCaseContainer}>
+                  {['normal', 'uppercase', 'lowercase'].map((caseOption) => (
+                    <TouchableOpacity
+                      key={caseOption}
+                      onPress={() => saveTextCase(caseOption)}
+                      style={[
+                        styles.textCaseButton,
+                        caseOption === textCase ? styles.activeButton : null,
+                      ]}
+                    >
+                      <MaterialCommunityIcons
+                        name={
+                          caseOption === 'normal' ? 'format-letter-case' :
+                          caseOption === 'uppercase' ? 'format-letter-case-upper' :
+                          'format-letter-case-lower'
+                        }
+                        size={30}
+                        color={caseOption === textCase ? 'white' : 'black'}
+                      />
+                    </TouchableOpacity>
+                  ))}
+                </View>
+
+                <Text style={styles.sectionTitle}>Font Style</Text>
+                <View style={styles.fontStyleContainer}>
+                  {['normal', 'bold', 'italic'].map((styleOption) => (
+                    <TouchableOpacity
+                      key={styleOption}
+                      onPress={() => saveFontStyle(styleOption)}
+                      style={[
+                        styles.fontStyleButton,
+                        styleOption === fontStyle ? styles.activeButton : null,
+                      ]}
+                    >
+                      <FontAwesome5
+                        name={
+                          styleOption === 'normal' ? 'font' :
+                          styleOption === 'bold' ? 'bold' :
+                          'italic'
+                        }
+                        size={20}
+                        color={styleOption === fontStyle ? 'white' : 'black'}
+                      />
+                    </TouchableOpacity>
+                  ))}
+                </View>
+              </View>
+            </TouchableWithoutFeedback>
           </View>
-        </View>
+        </TouchableWithoutFeedback>
       </Modal>
     </View>
   );
 };
 
-
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    paddingTop: 60,
+  },
+  backgroundImage: {
+    ...StyleSheet.absoluteFillObject, // Full-screen coverage
   },
   sectionTitle: {
     fontFamily: 'Poppins_600SemiBold',
     fontSize: 14,
     color: '#333',
     marginVertical: 10,
+    alignSelf: 'flex-start',
   },
   header: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingHorizontal: 20,
-    position: 'relative',
-    marginBottom: 10,
+    padding: 15,
+    zIndex: 1,
+    paddingTop: 60,
+    marginBottom: 5,
   },
   backButton: {
-    padding: 10,
+    marginLeft: 5,
   },
   buttonContainer: {
     flexDirection: 'row',
   },
   customizeButton: {
-    padding: 10,
-    marginLeft: 5,
+    marginHorizontal: 15,
   },
   modalContainer: {
     flex: 1,
@@ -397,63 +495,54 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(0, 0, 0, 0.5)',
   },
   modalContent: {
+    width: '90%',
     backgroundColor: '#fff',
     padding: 20,
-    width: '80%',
-    borderRadius: 10,
+    borderRadius: 20,
+    alignItems: 'center',
   },
-  modalTitle: {
-    fontFamily: 'Poppins_600SemiBold',
-    fontSize: 18,
-    marginBottom: 10,
-  },
-  colorSelectorContainer: {
+  colorScrollContainer: {
     flexDirection: 'row',
-    gap: 5,
-    marginBottom: 15,
+    alignItems: 'center',
+    justifyContent: 'flex-start',
+    marginBottom: 5,
   },
   colorButton: {
-    width: 25,
-    height: 25,
-    borderRadius: 15,
+    width: 80,
+    height: 80,
+    borderRadius: 50,
+    marginRight: 10,
     borderWidth: 1,
     borderColor: '#ccc',
   },
-  imageSelectorContainer: {
+  imageScrollContainer: {
     flexDirection: 'row',
-    flexWrap: 'wrap',
-    justifyContent: 'center',
+    alignItems: 'center',
+    justifyContent: 'flex-start',
   },
   imagePreviewContainer: {
-    margin: 5,
+    marginRight: 10,
+    borderRadius: 50,
+    overflow: 'hidden',
+    borderWidth: 1,
+    borderColor: '#ccc',
+    marginBottom: 30,
   },
   imagePreview: {
-    width: 50,
-    height: 50,
-    borderRadius: 5,
-  },
-  uploadImageButton: {
-    marginTop: 10,
-    padding: 10,
-    backgroundColor: '#007BFF',
-    borderRadius: 5,
-  },
-  uploadImageButtonText: {
-    color: '#fff',
-    fontSize: 14,
+    width: 80,
+    height: 80,
   },
   alignmentContainer: {
     flexDirection: 'row',
     gap: 10,
-    marginBottom: 15,
   },
   alignmentButton: {
     alignItems: 'center',
     justifyContent: 'center',
-    width: 40,
-    height: 40,
+    width: 70,
+    height: 70,
     backgroundColor: '#f4f4f4',
-    borderRadius: 25,
+    borderRadius: 18,
     padding: 5,
   },
   activeButton: {
@@ -462,29 +551,28 @@ const styles = StyleSheet.create({
   textCaseContainer: {
     flexDirection: 'row',
     gap: 10,
-    marginBottom: 15,
   },
   textCaseButton: {
-    width: 45,
-    height: 45,
+    width: 70,
+    height: 70,
     justifyContent: 'center',
     alignItems: 'center',
     backgroundColor: '#f4f4f4',
-    borderRadius: 25,
+    borderRadius: 18,
     padding: 5,
   },
-    fontStyleContainer: {
+  fontStyleContainer: {
     flexDirection: 'row',
     gap: 10,
-    marginBottom: 15,
+    marginBottom: 20,
   },
   fontStyleButton: {
-    width: 50, 
-    height: 50,
+    width: 70, 
+    height: 70,
     justifyContent: 'center',
     alignItems: 'center',
     backgroundColor: '#f4f4f4',
-    borderRadius: 25,
+    borderRadius: 18,
     padding: 5,
   },
   alignmentText: {
@@ -492,58 +580,116 @@ const styles = StyleSheet.create({
     fontSize: 14,
   },
   activeButton: {
-    backgroundColor: '#d9d9d9', 
+    backgroundColor: '#13547D', 
+  },
+  overlay: {
+    ...StyleSheet.absoluteFillObject,
+    justifyContent: 'flex-start',
   },
   entryDetails: {
     padding: 20,
-    paddingBottom: 80, 
   },
   entryDescription: {
-    fontFamily: 'Poppins_400Regular',
     fontSize: 16,
-    color: '#444',
-  },
-  entryImage: {
-    width: '100%',
-    height: 200,
-    marginVertical: 10,
-    borderRadius: 8,
-  },
-  closeModalButton: {
-    backgroundColor: '#007AFF',
-    paddingVertical: 10,
-    alignItems: 'center',
-    borderRadius: 10,
-    marginTop: 15,
-  },
-  closeModalButtonText: {
-    color: '#fff',
-    fontSize: 16,
-    fontFamily: 'Poppins_600SemiBold',
-  },
-  entryDetails: {
-    padding: 30,
-    marginBottom: 5,
-  },
-  entryDescription: {
-    fontSize: 15,
-    marginBottom: 30,
     color: '#333',
     fontFamily: 'Poppins_400Regular',
   },
-  entryImage: {
+  imageGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 2,
+    marginBottom: 15,
+  },
+  singleImage: {
     width: '100%',
-    height: 300,
-    marginBottom: 30,
+    height: 200,
+    borderRadius: 13,
+    marginBottom: 15,
   },
-  sentimentContainer: {
-    marginBottom: 20,
+  gridImage: {
+    flex: 1,
+    height: 200,
+    marginHorizontal: 1,
+    marginVertical: 1,
   },
-  percentageText: {
-    fontSize: 15,
-    fontWeight: '600',
-    color: '#000',
+  twoImagesStyle: {
+    width: '50%',
+    height: 150,
   },
+  threeImagesStyle: {
+    width: '33%',
+    height: 200,
+  },
+  fourPlusImagesStyle: {
+    width: '49.5%',
+    height: 150,
+  },
+  remainingCountOverlay: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: 'rgba(0, 0, 0, 0.6)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  remainingCountText: {
+    color: '#fff',
+    fontSize: 20,
+    fontWeight: 'bold',
+  },
+  imageViewerContainer: {
+    flex: 1,
+    backgroundColor: '#000',
+  },
+  imageViewerContent: {
+    flexGrow: 1,
+  },
+  fullScreenImageContainer: {
+    width: screenWidth,
+    height: '100%',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  fullScreenImage: {
+    width: screenWidth,
+    height: '100%',
+  },
+  closeImageViewer: {
+    position: 'absolute',
+    top: 40,
+    right: 20,
+    zIndex: 10,
+    padding: 10,
+  },
+  imageCounter: {
+    position: 'absolute',
+    bottom: 20,
+    alignSelf: 'center',
+    color: '#fff',
+    fontSize: 16,
+    fontWeight: 'bold',
+  },
+  checkOverlay: {
+    position: 'absolute',
+    top: 0,
+    right: 0,
+    bottom: 0,
+    left: 0,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: 'rgba(255, 255, 255, 0.7)',
+    borderRadius: 30,
+  },
+  checkOverlayImage: {
+    position: 'absolute',
+    top: 0,
+    right: 0,
+    bottom: 0,
+    left: 0,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: 'rgba(0, 0, 0, 0.4)',
+    borderRadius: 50,
+  },
+  
 });
 
 export default FullEntryView;
