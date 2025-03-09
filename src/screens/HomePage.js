@@ -20,6 +20,8 @@ const HomePage = () => {
   const [recommendations, setRecommendations] = useState([]);
   const [loading, setLoading] = useState(true);
   const [token, setToken] = useState(null);
+  const [profilePicture, setProfilePicture] = useState(null);
+  const [profileLastUpdated, setProfileLastUpdated] = useState(Date.now());
 
   const navigation = useNavigation();
 
@@ -36,24 +38,41 @@ const HomePage = () => {
     getToken();
   }, []);
 
-  useEffect(() => {
-    const fetchUserProfile = async () => {
-      try {
-        const userData = await getCurrentUser(); // Fetch user profile
-        setUserName(userData.name); // Store user name
-      } catch (error) {
-        console.error('Error fetching user profile:', error);
+  const fetchUserProfile = async () => {
+    if (!token) return;
+    
+    try {
+      const userData = await getCurrentUser();
+      console.log("Full user data:", userData);
+      setUserName(userData.name);
+      
+      console.log("Profile picture from server:", userData.profile_picture);
+      
+      if (userData.profile_picture) {
+        const picturePath = userData.profile_picture.startsWith('/') 
+          ? userData.profile_picture.substring(1) 
+          : userData.profile_picture;
+        
+        const timestamp = Date.now();
+        setProfilePicture(`http://192.168.1.11:3000/${picturePath}?t=${timestamp}`);
+      } else {
+        setProfilePicture(null);
       }
-    };
+    } catch (error) {
+      console.error('Error fetching user profile:', error);
+    }
+  };
 
+  useEffect(() => {
     if (token) {
       fetchUserProfile();
     }
-  }, [token]);
+  }, [token, profileLastUpdated]);
 
   useFocusEffect(
     React.useCallback(() => {
       if (token) {
+        fetchUserProfile();
         fetchRecommendations();
       }
     }, [token])
@@ -95,8 +114,15 @@ const HomePage = () => {
 
   const onRefresh = async () => {
     setRefreshing(true);
+    // Refresh profile picture by updating the timestamp
+    setProfileLastUpdated(Date.now());
     await fetchRecommendations();
     setRefreshing(false);
+  };
+
+  const refreshProfilePicture = () => {
+    // Function that can be called to refresh profile picture
+    setProfileLastUpdated(Date.now());
   };
 
   if (!fontsLoaded) {
@@ -111,7 +137,30 @@ const HomePage = () => {
       >
         <View style={styles.headerContent}>
           <View style={styles.headerTop}>
-            <Text style={styles.headerGreeting}>{greeting}, {userName}!</Text>
+            <TouchableOpacity 
+              style={styles.profilePictureContainer}
+              onPress={refreshProfilePicture}
+            >
+              {profilePicture ? (
+                <Image 
+                  source={{ uri: profilePicture }} 
+                  style={styles.profilePicture} 
+                  // Make sure to set cache control
+                  onError={() => console.log("Error loading profile picture")}
+                />
+              ) : (
+                <View style={styles.defaultProfilePicture}>
+                  <Text style={styles.defaultProfileInitial}>
+                    {userName ? userName.charAt(0).toUpperCase() : '?'}
+                  </Text>
+                </View>
+              )}
+            </TouchableOpacity>
+            
+            <View style={styles.greetingTextContainer}>
+              <Text style={styles.headerGreeting}>{greeting}, {userName}!</Text>
+            </View>
+            
             <TouchableOpacity
               style={styles.dataButton}
               onPress={() => navigation.navigate('DataVisualization')}
@@ -186,6 +235,36 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginBottom: 20,
   },
+  profilePictureContainer: {
+    width: 45,
+    height: 45,
+  },
+  profilePicture: {
+    width: 45,
+    height: 45,
+    borderRadius: 22.5,
+    borderWidth: 2,
+    borderColor: '#ffffff',
+  },
+  defaultProfilePicture: {
+    width: 45,
+    height: 45,
+    borderRadius: 22.5,
+    backgroundColor: '#ffffff',
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderWidth: 2,
+    borderColor: '#ffffff',
+  },
+  defaultProfileInitial: {
+    fontSize: 22,
+    fontFamily: 'Poppins_600SemiBold',
+    color: '#13547D',
+  },
+  greetingTextContainer: {
+    flex: 1,
+    alignItems: 'center',
+  },
   headerGreeting: {
     fontSize: 16,
     fontFamily: 'Poppins_600SemiBold',
@@ -193,6 +272,7 @@ const styles = StyleSheet.create({
     textShadowColor: 'rgba(0, 0, 0, 0.5)',
     textShadowOffset: { width: 2, height: 2 },
     textShadowRadius: 5,
+    textAlign: 'center',
   },
   dataButton: {
     padding: 5,

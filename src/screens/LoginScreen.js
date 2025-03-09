@@ -163,8 +163,7 @@ const styles = StyleSheet.create({
   title: {
     fontFamily: 'Poppins_600SemiBold',
     fontSize: 32,
-    marginTop: 60,
-    marginBottom: 8,
+    marginTop: 30,
     color: '#13547D',
     letterSpacing: 0.5,
   },

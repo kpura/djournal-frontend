@@ -1,5 +1,6 @@
 //index.js
 import axios from 'axios';
+import * as SecureStore from 'expo-secure-store'; // Add this import
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
 const api = axios.create({
@@ -338,6 +339,23 @@ export const fetchUserHistory = async (month, year) => {
   }
 };
 
+export const uploadProfilePicture = async (formData) => {
+  try {
+    const token = await AsyncStorage.getItem('userToken');
+    const response = await fetch(`${API_URL}/user/upload-profile-picture`, {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${token}` },
+      body: formData,
+    });
+
+    if (!response.ok) throw new Error(await response.text());
+    return await response.json();
+  } catch (error) {
+    console.error('Upload profile picture error:', error);
+    throw error;
+  }
+};
+
 export default {
   createJournal,
   fetchJournals,
@@ -356,4 +374,5 @@ export default {
   getCurrentUser,
   setAuthToken,
   fetchUserHistory,
+  uploadProfilePicture,
 };

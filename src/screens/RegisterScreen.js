@@ -1,4 +1,4 @@
-import React, { useState, useCallback } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { 
   View, Text, TextInput, TouchableOpacity, StyleSheet, ActivityIndicator, Modal 
 } from 'react-native';
@@ -37,6 +37,11 @@ const RegisterScreen = ({ navigation }) => {
   const showAlert = (message) => {
     setAlertMessage(message);
     setAlertVisible(true);
+    
+    // Auto-dismiss the modal after 2 seconds
+    setTimeout(() => {
+      setAlertVisible(false);
+    }, 2000);
   };
 
   const handleRegister = async () => {
@@ -74,7 +79,8 @@ const RegisterScreen = ({ navigation }) => {
       }
       
       setLoading(false);
-      showAlert('Account created successfully!', () => navigation.navigate('Login'));
+      showAlert('Account created successfully!');
+      setTimeout(() => navigation.navigate('Login'), 2000);
     } catch (error) {
       setLoading(false);
       showAlert(error.message || 'Something went wrong');
@@ -166,10 +172,13 @@ const RegisterScreen = ({ navigation }) => {
       <Modal transparent={true} visible={alertVisible} animationType="fade">
         <View style={styles.modalContainer}>
           <View style={styles.modalContent}>
+            <Ionicons 
+              name={alertMessage.includes('success') ? 'checkmark-circle' : 'close-circle'} 
+              size={40} 
+              color={alertMessage.includes('success') ? '#28a745' : '#dc3545'} 
+              style={styles.modalIcon} 
+            />
             <Text style={styles.modalText}>{alertMessage}</Text>
-            <TouchableOpacity onPress={() => setAlertVisible(false)} style={styles.modalButton}>
-              <Text style={styles.modalButtonText}>OK</Text>
-            </TouchableOpacity>
           </View>
         </View>
       </Modal>
@@ -191,8 +200,7 @@ const styles = StyleSheet.create({
   title: {
     fontFamily: 'Poppins_600SemiBold',
     fontSize: 32,
-    marginTop: 60,
-    marginBottom: 8,
+    marginTop: 30,
     color: '#13547D',
   },
   subtitle: {
@@ -277,7 +285,7 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: 'rgba(0, 0, 0, 0.4)', // Semi-transparent background
+    backgroundColor: 'rgba(0, 0, 0, 0.4)',
   },
   modalContent: {
     backgroundColor: '#ffffff',
@@ -295,19 +303,9 @@ const styles = StyleSheet.create({
     fontSize: 16,
     textAlign: 'center',
     color: '#495057',
-    marginBottom: 16,
   },
-  modalButton: {
-    backgroundColor: '#13547D',
-    paddingVertical: 12,
-    paddingHorizontal: 32,
-    borderRadius: 8,
-    elevation: 3,
-  },
-  modalButtonText: {
-    fontFamily: 'Poppins_600SemiBold',
-    color: '#ffffff',
-    fontSize: 16,
+  modalIcon: {
+    marginBottom: 10,
   },  
 });
 
