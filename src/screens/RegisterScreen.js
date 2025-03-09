@@ -1,5 +1,7 @@
 import React, { useState, useCallback } from 'react';
-import { View, Text, TextInput, TouchableOpacity, StyleSheet, Alert, ActivityIndicator } from 'react-native';
+import { 
+  View, Text, TextInput, TouchableOpacity, StyleSheet, ActivityIndicator, Modal 
+} from 'react-native';
 import { registerUser } from '../api';
 import { useFonts, Poppins_400Regular, Poppins_600SemiBold } from '@expo-google-fonts/poppins';
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -14,13 +16,13 @@ const RegisterScreen = ({ navigation }) => {
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [loading, setLoading] = useState(false);
-
+  const [alertVisible, setAlertVisible] = useState(false);
+  const [alertMessage, setAlertMessage] = useState('');
   const [fontsLoaded] = useFonts({
     Poppins_400Regular,
     Poppins_600SemiBold,
   });
 
-  // Reset input fields when screen is focused
   useFocusEffect(
     useCallback(() => {
       setName('');
@@ -32,43 +34,50 @@ const RegisterScreen = ({ navigation }) => {
     }, [])
   );
 
+  const showAlert = (message) => {
+    setAlertMessage(message);
+    setAlertVisible(true);
+  };
+
   const handleRegister = async () => {
     if (!name || !email || !password || !confirmPassword) {
-      Alert.alert('Error', 'Please fill in all fields');
+      showAlert('Please fill in all fields');
       return;
     }
-
-    // Email validation regex
+  
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
     if (!emailRegex.test(email)) {
-      Alert.alert('Error', 'Please enter a valid email address');
+      showAlert('Please enter a valid email address');
       return;
     }
-
+  
+    if (password.length < 8) {
+      showAlert('Password must be at least 8 characters long');
+      return;
+    }
+  
     if (password !== confirmPassword) {
-      Alert.alert('Error', 'Passwords do not match');
+      showAlert('Passwords do not match');
       return;
     }
-
+  
     try {
       setLoading(true);
       const userData = await registerUser(name, email, password);
-
+  
       if (!userData || !userData.userId) {
         throw new Error('Invalid registration response');
       }
-
+  
       await AsyncStorage.setItem('userId', userData.userId.toString());
-
+  
       setLoading(false);
-      Alert.alert('Success', 'Account created successfully', [
-        { text: 'OK', onPress: () => navigation.navigate('Login') }
-      ]);
+      showAlert('Account created successfully!', () => navigation.navigate('Login'));
     } catch (error) {
       setLoading(false);
-      Alert.alert('Registration Failed', error.message || 'Something went wrong');
+      showAlert(error.message || 'Something went wrong');
     }
-  };
+  };  
 
   if (!fontsLoaded) {
     return (
@@ -151,11 +160,21 @@ const RegisterScreen = ({ navigation }) => {
           </TouchableOpacity>
         </View>
       </View>
+
+      <Modal transparent={true} visible={alertVisible} animationType="fade">
+        <View style={styles.modalContainer}>
+          <View style={styles.modalContent}>
+            <Text style={styles.modalText}>{alertMessage}</Text>
+            <TouchableOpacity onPress={() => setAlertVisible(false)} style={styles.modalButton}>
+              <Text style={styles.modalButtonText}>OK</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
     </View>
   );
 };
 
-// Styles
 const styles = StyleSheet.create({
   container: {
     flex: 1,
@@ -252,6 +271,42 @@ const styles = StyleSheet.create({
     color: '#13547D',
     fontSize: 16,
   },
+  modalContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: 'rgba(0, 0, 0, 0.4)', // Semi-transparent background
+  },
+  modalContent: {
+    backgroundColor: '#ffffff',
+    padding: 24,
+    borderRadius: 12,
+    width: '80%',
+    alignItems: 'center',
+    shadowColor: '#000',
+    shadowOpacity: 0.2,
+    shadowRadius: 4,
+    elevation: 5,
+  },
+  modalText: {
+    fontFamily: 'Poppins_400Regular',
+    fontSize: 16,
+    textAlign: 'center',
+    color: '#495057',
+    marginBottom: 16,
+  },
+  modalButton: {
+    backgroundColor: '#13547D',
+    paddingVertical: 12,
+    paddingHorizontal: 32,
+    borderRadius: 8,
+    elevation: 3,
+  },
+  modalButtonText: {
+    fontFamily: 'Poppins_600SemiBold',
+    color: '#ffffff',
+    fontSize: 16,
+  },  
 });
 
 export default RegisterScreen;

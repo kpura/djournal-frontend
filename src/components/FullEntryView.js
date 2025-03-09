@@ -115,7 +115,7 @@ const FullEntryView = () => {
             source={{ 
               uri: images[0].startsWith('http') 
                 ? images[0] 
-                : `http://192.168.1.3:3000${images[0]}` 
+                : `http://192.168.1.11:3000${images[0]}` 
             }}
             style={styles.singleImage}
             resizeMode="cover"
@@ -150,7 +150,7 @@ const FullEntryView = () => {
                 source={{ 
                   uri: image.startsWith('http') 
                     ? image 
-                    : `http://192.168.1.3:3000${image}` 
+                    : `http://192.168.1.11:3000${image}` 
                 }}
                 style={StyleSheet.absoluteFill}
                 resizeMode="cover"
@@ -199,7 +199,7 @@ const FullEntryView = () => {
                   source={{ 
                     uri: image.startsWith('http') 
                       ? image 
-                      : `http://192.168.1.3:3000${image}` 
+                      : `http://192.168.1.11:3000${image}` 
                   }}
                   style={styles.fullScreenImage}
                   resizeMode="contain"

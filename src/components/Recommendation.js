@@ -5,7 +5,6 @@ import { useNavigation } from '@react-navigation/native';
 const Recommendation = ({ data }) => {
   const navigation = useNavigation();
 
-  // Ensure user_submitted_images is an array
   const userImages = Array.isArray(data.user_submitted_images) ? data.user_submitted_images : [];
 
   return (
@@ -22,13 +21,12 @@ const Recommendation = ({ data }) => {
         user_submitted_images: userImages,
       })}
     >
-      {/* Display Main Location Image */}
       {data.location_images ? (
         <Image
           source={{ 
             uri: data.location_images.startsWith('/') 
-              ? `http://192.168.1.3:3000${data.location_images}` 
-              : `http://192.168.1.3:3000/uploads/${data.location_images}` 
+              ? `http://192.168.1.11:3000${data.location_images}` 
+              : `http://192.168.1.11:3000/uploads/${data.location_images}` 
           }}
           style={styles.image}
           resizeMode="cover"

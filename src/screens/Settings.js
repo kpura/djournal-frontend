@@ -18,7 +18,6 @@ const Settings = () => {
   const navigation = useNavigation();
 
   useEffect(() => {
-    // Fetch user profile data when component mounts
     const fetchUserProfile = async () => {
       try {
         setProfileLoading(true);
@@ -29,7 +28,6 @@ const Settings = () => {
         });
       } catch (error) {
         console.error('Failed to load user profile:', error);
-        // Keep default values if there's an error
       } finally {
         setProfileLoading(false);
       }
@@ -106,6 +104,13 @@ const Settings = () => {
           <Text style={styles.featureText}>Evaluation Form</Text>
           <Icon name="chevron-forward-outline" size={20} color="#ccc" style={styles.arrowIcon} />
         </TouchableOpacity>
+
+        <TouchableOpacity style={styles.featureButton} onPress={() => Linking.openURL('https://djournalmood.com')}>
+          <Icon name="globe-outline" size={24} color="#000" />
+          <Text style={styles.featureText}>Website Link</Text>
+          <Icon name="chevron-forward-outline" size={20} color="#ccc" style={styles.arrowIcon} />
+        </TouchableOpacity>
+
       </View>
     </View>
   );

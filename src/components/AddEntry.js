@@ -91,7 +91,7 @@ const AddEntry = ({ visible, onClose, journalId, entry }) => {
       const entryLocationName = entry.entry_location_name || '';
       const entryLocationId = entry.location_id || null;
       const parsedLocation = entry.entry_location ? JSON.parse(entry.entry_location) : null;
-      const showInRecommendation = entry.display_images_in_recommendation !== false; // Default to true if not set
+      const showInRecommendation = entry.display_images_in_recommendation !== false;
       
       setDescription(entryDesc);
       setDateTime(new Date(entry.entry_datetime || Date.now()));
@@ -103,7 +103,7 @@ const AddEntry = ({ visible, onClose, journalId, entry }) => {
       let images = [];
       if (entry.entry_images && entry.entry_images !== 'null') {
         images = JSON.parse(entry.entry_images).map(img => 
-          img.startsWith('http') ? img : `http://192.168.1.3:3000${img}`
+          img.startsWith('http') ? img : `http://192.168.1.11:3000${img}`
         );
       }
       setEntryImages(images);
@@ -115,7 +115,6 @@ const AddEntry = ({ visible, onClose, journalId, entry }) => {
         displayImagesInRecommendation: showInRecommendation,
       });
       
-      // Show image options if entry has images
       if (images.length > 0) {
         setImageOptionsVisible(true);
       }
@@ -205,11 +204,10 @@ const AddEntry = ({ visible, onClose, journalId, entry }) => {
         setLocationId(parsed.locationId);
         setLocation(parsed.location);
         setEntryImages(parsed.entryImages || []);
-        setDisplayImagesInRecommendation(parsed.displayImagesInRecommendation !== false); // Default to true
+        setDisplayImagesInRecommendation(parsed.displayImagesInRecommendation !== false);
         setDateTime(new Date(parsed.dateTime || Date.now()));
         setHasDraft(false);
         
-        // Show image options if draft has images
         if (parsed.entryImages && parsed.entryImages.length > 0) {
           setImageOptionsVisible(true);
         }
@@ -369,7 +367,6 @@ const AddEntry = ({ visible, onClose, journalId, entry }) => {
         const newImages = result.assets.map(asset => asset.uri);
         setEntryImages(prevImages => [...prevImages, ...newImages]);
         
-        // Show image options if this is the first image added
         if (entryImages.length === 0 && newImages.length > 0) {
           setImageOptionsVisible(true);
         }
@@ -382,7 +379,6 @@ const AddEntry = ({ visible, onClose, journalId, entry }) => {
 
   const removeImage = (index) => {
     setEntryImages(prevImages => prevImages.filter((_, i) => i !== index));
-    // If removing the last image, reset the image options visibility
     if (entryImages.length === 1) {
       setImageOptionsVisible(false);
     }
@@ -658,7 +654,6 @@ const styles = StyleSheet.create({
     backgroundColor: '#f9f9f9',
     padding: 10,
     borderRadius: 8,
-    marginBottom: 5,
     borderWidth: 1,
     borderColor: '#e0e0e0',
   },
@@ -671,7 +666,6 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 5,
   },
   optionText: {
     fontSize: 14,

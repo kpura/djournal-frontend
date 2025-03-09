@@ -6,7 +6,7 @@ import Recommendation from '../components/Recommendation';
 import { useNavigation, useFocusEffect } from '@react-navigation/native';
 import axios from 'axios';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { getCurrentUser } from '../api/index'; // Import function to get user profile
+import { getCurrentUser } from '../api/index';
 
 const HomePage = () => {
   const [fontsLoaded] = useFonts({
@@ -15,7 +15,7 @@ const HomePage = () => {
   });
 
   const [greeting, setGreeting] = useState('');
-  const [userName, setUserName] = useState(''); // State to store user name
+  const [userName, setUserName] = useState('');
   const [refreshing, setRefreshing] = useState(false);
   const [recommendations, setRecommendations] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -79,7 +79,7 @@ const HomePage = () => {
 
     setLoading(true);
     try {
-      const response = await axios.get('http://192.168.1.3:3000/api/recommendations', {
+      const response = await axios.get('http://192.168.1.11:3000/api/recommendations', {
         headers: { 'Authorization': `Bearer ${token}` }
       });
 

@@ -165,7 +165,7 @@ const MyEntry = () => {
               performDelete(entryId);
               setShowUndoMessage(false);
               setDeletedEntry(null);
-            }, 3000);
+            }, 2000);
             
             setUndoTimer(timer);
           },

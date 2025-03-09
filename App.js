@@ -1,9 +1,5 @@
 import 'react-native-get-random-values';
 import * as React from 'react';
-//import { useEffect } from 'react';
-//import { setupDatabase } from './src/api/database';
-//import NetInfo from "@react-native-community/netinfo";
-//import { syncOfflineData } from "./src/api/database";
 import { Text } from 'react-native';
 import { NavigationContainer } from '@react-navigation/native';
 import { createStackNavigator, CardStyleInterpolators } from '@react-navigation/stack';
@@ -59,7 +55,6 @@ const screenOptions = {
   headerStyleInterpolator: CardStyleInterpolators.forFade,
 };
 
-// Custom transition for modal screens
 const modalScreenOptions = {
   gestureEnabled: true,
   cardStyleInterpolator: CardStyleInterpolators.forModalPresentationIOS,
@@ -134,20 +129,6 @@ function MainTabNavigator() {
 }
 
 export default function App() {
-  //useEffect(() => {
-    //setupDatabase();
-  //}, []);
-
-  //useEffect(() => {
-    //const unsubscribe = NetInfo.addEventListener(state => {
-      //if (state.isConnected) {
-        //syncOfflineData();
-      //}
-    //});
-
-    //return () => unsubscribe();
-  //}, []);
-  
   return (
     <NavigationContainer>
       <Stack.Navigator 

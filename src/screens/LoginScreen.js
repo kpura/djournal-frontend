@@ -1,18 +1,21 @@
 import React, { useState } from 'react';
-import { View, Text, TextInput, TouchableOpacity, StyleSheet, Alert, ActivityIndicator } from 'react-native';
-import { loginUser } from '../api'; // adjust the path as needed
+import { 
+  View, Text, TextInput, TouchableOpacity, StyleSheet, ActivityIndicator, Modal 
+} from 'react-native';
+import { loginUser } from '../api';
 import { useFocusEffect } from '@react-navigation/native';
 import { useFonts, Poppins_400Regular, Poppins_600SemiBold } from '@expo-google-fonts/poppins';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { Ionicons } from '@expo/vector-icons'; // Import for eye icon
+import { Ionicons } from '@expo/vector-icons';
 
 const LoginScreen = ({ navigation }) => {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [alertVisible, setAlertVisible] = useState(false);
+  const [alertMessage, setAlertMessage] = useState('');
 
-  // Load fonts
   const [fontsLoaded] = useFonts({
     Poppins_400Regular,
     Poppins_600SemiBold,
@@ -27,9 +30,14 @@ const LoginScreen = ({ navigation }) => {
     }, [])
   );
 
+  const showAlert = (message) => {
+    setAlertMessage(message);
+    setAlertVisible(true);
+  };
+
   const handleLogin = async () => {
     if (!email || !password) {
-      Alert.alert('Error', 'Please fill in all fields');
+      showAlert('Please fill in all fields');
       return;
     }
 
@@ -37,7 +45,7 @@ const LoginScreen = ({ navigation }) => {
       setLoading(true);
       const userData = await loginUser(email, password);
 
-      console.log('Login Response:', userData); // Debugging
+      console.log('Login Response:', userData);
 
       if (!userData || !userData.userId) {
         throw new Error('Invalid login response');
@@ -49,14 +57,13 @@ const LoginScreen = ({ navigation }) => {
       navigation.navigate('Main');
     } catch (error) {
       setLoading(false);
-      Alert.alert('Login Failed', error.message);
+      showAlert('Login Failed: ' + error.message);
     }
   };
 
-  // Show loading indicator while fonts are loading
   if (!fontsLoaded) {
     return (
-      <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
+      <View style={styles.centered}>
         <ActivityIndicator size="large" color="#4361ee" />
       </View>
     );
@@ -117,17 +124,41 @@ const LoginScreen = ({ navigation }) => {
           </TouchableOpacity>
         </View>
       </View>
+
+      <Modal
+        visible={alertVisible}
+        transparent={true}
+        animationType="fade"
+        onRequestClose={() => setAlertVisible(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.alertBox}>
+            <Text style={styles.alertTitle}>Oops!</Text>
+            <Text style={styles.alertMessage}>{alertMessage}</Text>
+            <TouchableOpacity
+              style={styles.alertButton}
+              onPress={() => setAlertVisible(false)}
+            >
+              <Text style={styles.alertButtonText}>OK</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
     </View>
   );
 };
 
-// Shared styles
 const styles = StyleSheet.create({
   container: {
     flex: 1,
     padding: 24,
     backgroundColor: '#f8f9fa',
     fontFamily: 'Poppins_400Regular',
+  },
+  centered: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   title: {
     fontFamily: 'Poppins_600SemiBold',
@@ -164,13 +195,6 @@ const styles = StyleSheet.create({
     padding: 16,
     fontSize: 16,
     backgroundColor: '#ffffff',
-    shadowColor: '#000',
-    shadowOffset: {
-      width: 0,
-      height: 1,
-    },
-    shadowOpacity: 0.1,
-    shadowRadius: 2,
     elevation: 2,
   },
   passwordContainer: {
@@ -195,28 +219,17 @@ const styles = StyleSheet.create({
     padding: 18,
     alignItems: 'center',
     marginTop: 16,
-    shadowColor: '#4361ee',
-    shadowOffset: {
-      width: 0,
-      height: 4,
-    },
-    shadowOpacity: 0.3,
-    shadowRadius: 6,
     elevation: 4,
   },
   buttonText: {
     fontFamily: 'Poppins_600SemiBold',
     color: '#ffffff',
     fontSize: 18,
-    letterSpacing: 0.5,
   },
   registerContainer: {
     flexDirection: 'row',
     justifyContent: 'center',
     marginTop: 30,
-    paddingTop: 20,
-    borderTopWidth: 1,
-    borderTopColor: '#e9ecef',
   },
   registerText: {
     fontFamily: 'Poppins_400Regular',
@@ -227,6 +240,44 @@ const styles = StyleSheet.create({
     fontFamily: 'Poppins_600SemiBold',
     color: '#13547D',
     fontSize: 16,
+  },
+  modalOverlay: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: 'rgba(0, 0, 0, 0.3)',
+  },
+  alertBox: {
+    width: 300,
+    padding: 20,
+    backgroundColor: 'white',
+    borderRadius: 12,
+    alignItems: 'center',
+  },
+  alertTitle: {
+    fontSize: 20,
+    fontFamily: 'Poppins_600SemiBold',
+    color: '#13547D',
+  },
+  alertMessage: {
+    fontSize: 16,
+    fontFamily: 'Poppins_400Regular',
+    color: '#6c757d',
+    marginVertical: 10,
+    textAlign: 'center',
+  },
+  alertButton: {
+    backgroundColor: '#13547D',
+    borderRadius: 8,
+    padding: 10,
+    width: '80%',
+    alignItems: 'center',
+    marginTop: 10,
+  },
+  alertButtonText: {
+    fontSize: 16,
+    color: 'white',
+    fontFamily: 'Poppins_600SemiBold',
   },
 });
 

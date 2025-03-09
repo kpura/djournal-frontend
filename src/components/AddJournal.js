@@ -5,20 +5,6 @@ import { createJournal, updateJournal } from '../api';
 import { useFonts, Poppins_400Regular, Poppins_600SemiBold } from '@expo-google-fonts/poppins';
 import FontAwesome5 from 'react-native-vector-icons/FontAwesome5';
 
-//import NetInfo from "@react-native-community/netinfo";
-//import { saveJournalOffline } from "../api/database";
-//import { saveJournalOnline } from "../api/api"; // Existing API function
-
-//const handleSaveJournal = async (title, date) => {
-  //const isConnected = await NetInfo.fetch().then(state => state.isConnected);
-
-  //if (isConnected) {
-    //await saveJournalOnline(title, date);
-  //} else {
-    //await saveJournalOffline(title, date);
-  //}
-//};
-
 const CustomAlert = ({ visible, message, type, onClose }) => {
   const [fadeAnim] = useState(new Animated.Value(0));
 

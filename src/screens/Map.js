@@ -333,8 +333,8 @@ const Map = () => {
               <Image
                 source={{ 
                   uri: selectedLocation.location_images.startsWith('/') 
-                    ? `http://192.168.1.3:3000${selectedLocation.location_images}`
-                    : `http://192.168.1.3:3000/uploads/${selectedLocation.location_images}` 
+                    ? `http://192.168.1.11:3000${selectedLocation.location_images}`
+                    : `http://192.168.1.11:3000/uploads/${selectedLocation.location_images}` 
                 }}
                 style={styles.locationImage}
                 resizeMode="cover"

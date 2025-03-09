@@ -37,26 +37,21 @@ const DataVisualization = () => {
         setLoading(true);
       }
       
-      // Clear any previous errors
       setError(null);
       
-      // Check if userId is available in AsyncStorage
       const userId = await AsyncStorage.getItem('userId');
       if (!userId) {
         throw new Error('User ID not found. Please log in again.');
       }
       
-      // Get current month and year from selectedMonth
       const month = String(selectedMonth.getMonth() + 1).padStart(2, '0');
       const year = selectedMonth.getFullYear();
       
       console.log('Fetching data with params:', { userId, month, year });
       
-      // Fetch real data from API
       const data = await fetchUserHistory(month, year);
       setHistoryData(data);
       
-      // Process data for visualization
       processHistoryData(data);
       
       setLoading(false);
@@ -76,7 +71,6 @@ const DataVisualization = () => {
 
   const processHistoryData = (data) => {
     if (!data || !data.entries || data.entries.length === 0) {
-      // Reset states if no data exists
       setMarkedDates({});
       setEntryCounts([]);
       setMoodData({
@@ -87,18 +81,14 @@ const DataVisualization = () => {
       return;
     }
     
-    // Process entries to create calendar marked dates
     const dates = {};
     const entriesPerDay = {};
     
     data.entries.forEach(entry => {
-      // Extract date from entry_datetime (format: YYYY-MM-DD HH:MM:SS)
       const entryDate = entry.entry_datetime.split(' ')[0];
       
-      // Determine sentiment - using the actual sentiment field first
       let sentiment = entry.sentiment || 'neutral';
       
-      // Only use percentage calculations as fallback if sentiment field is null or empty
       if (!sentiment || sentiment === '') {
         if (entry.positive_percentage > entry.negative_percentage && 
             entry.positive_percentage > entry.neutral_percentage) {
@@ -111,14 +101,12 @@ const DataVisualization = () => {
         }
       }
       
-      // Increment count for this date
       if (!entriesPerDay[entryDate]) {
         entriesPerDay[entryDate] = 1;
       } else {
         entriesPerDay[entryDate]++;
       }
       
-      // Mark date with sentiment (prioritize stronger emotions if multiple entries per day)
       if (!dates[entryDate] || 
           (sentiment === 'positive' && dates[entryDate].sentiment !== 'positive') ||
           (sentiment === 'negative' && dates[entryDate].sentiment === 'neutral')) {
@@ -129,7 +117,6 @@ const DataVisualization = () => {
       }
     });
     
-    // Set mood data from summary
     if (data.summary && data.summary.averageMood) {
       setMoodData({
         positive: data.summary.averageMood.positive || 0,
@@ -138,14 +125,11 @@ const DataVisualization = () => {
       });
     }
     
-    // Prepare entry counts for display
     setEntryCounts(Object.entries(entriesPerDay).map(([date, count]) => ({ date, count })));
     
-    // Set calendar marked dates
     setMarkedDates(dates);
   };
 
-  // Simple calendar component using react-native components
   const renderCalendar = () => {
     const today = new Date();
     const currentMonth = selectedMonth.getMonth();
@@ -169,11 +153,11 @@ const DataVisualization = () => {
       let dotColor = 'transparent';
       if (hasEntry) {
         if (hasEntry.sentiment === 'positive') {
-          dotColor = '#4CAF50'; // Green
+          dotColor = '#4CAF50';
         } else if (hasEntry.sentiment === 'negative') {
-          dotColor = '#F44336'; // Red
+          dotColor = '#F44336';
         } else {
-          dotColor = '#64B5F6'; // Blue for neutral
+          dotColor = '#64B5F6';
         }
       }
       
@@ -218,7 +202,6 @@ const DataVisualization = () => {
     );
   };
   
-  // Simple pie chart using Svg
   const renderPieChart = () => {
     const total = moodData.positive + moodData.negative + moodData.neutral;
     if (total === 0) {
@@ -233,8 +216,7 @@ const DataVisualization = () => {
     const centerX = 100;
     const centerY = 100;
     
-    // Improved pie chart visualization using circle sizes
-    const positiveSize = Math.max((moodData.positive / total) * radius, 10); // Minimum size for visibility
+    const positiveSize = Math.max((moodData.positive / total) * radius, 10);
     const negativeSize = Math.max((moodData.negative / total) * radius, 10);
     const neutralSize = Math.max((moodData.neutral / total) * radius, 10);
     
@@ -263,7 +245,6 @@ const DataVisualization = () => {
     );
   };
 
-  // Generate insights based on data
   const generateInsights = () => {
     if (!historyData || !historyData.entries || historyData.entries.length === 0) {
       return (
@@ -276,7 +257,6 @@ const DataVisualization = () => {
     const insights = [];
     const totalEntries = historyData.entries.length;
     
-    // Most common mood
     const { positive, negative, neutral } = moodData;
     let dominantMood = "content";
     let dominantPercentage = neutral;

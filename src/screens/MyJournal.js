@@ -7,27 +7,6 @@ import { useFonts, Poppins_400Regular, Poppins_600SemiBold } from '@expo-google-
 import { Swipeable } from 'react-native-gesture-handler';
 import { fetchJournals as apiFetchJournals, deleteJournal } from '../api';
 
-//import NetInfo from "@react-native-community/netinfo";
-//import { useEffect, useState } from "react";
-//import { getOfflineJournals } from "../api/database";
-//import { fetchJournalsOnline } from "../api/api"; 
-
-//useEffect(() => {
-  //const fetchJournals = async () => {
-    //const isConnected = await NetInfo.fetch().then(state => state.isConnected);
-
-    //if (isConnected) {
-      //const onlineJournals = await fetchJournalsOnline();
-      //setJournals(onlineJournals);
-    //} else {
-      //const offlineJournals = await getOfflineJournals();
-      //setJournals(offlineJournals);
-    //}
-  //};
-
-  //fetchJournals();
-//}, []);
-
 const MyJournal = () => {
   const [journals, setJournals] = useState([]);
   const [isModalVisible, setModalVisible] = useState(false);
@@ -134,7 +113,7 @@ const MyJournal = () => {
       performDelete(journalToDelete.journal_id);
       setShowUndoMessage(false);
       setDeletedJournal(null);
-    }, 3000);
+    }, 2000);
     
     setUndoTimer(timer);
   };

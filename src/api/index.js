@@ -3,7 +3,7 @@ import axios from 'axios';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
 const api = axios.create({
-  baseURL: 'http://192.168.1.3:3000/api',
+  baseURL: 'http://192.168.1.11:3000/api',
 });
 
 const API_URL = api.defaults.baseURL;
@@ -338,17 +338,6 @@ export const fetchUserHistory = async (month, year) => {
   }
 };
 
-// Add this function export
-export const associateEntryImagesWithLocation = async (entryId) => {
-  try {
-    const response = await api.post('/entries/associate-images', { entryId });
-    return response.data;
-  } catch (error) {
-    console.error('Error associating images with location:', error);
-    throw new Error(`Error associating images with location: ${error.message}`);
-  }
-};
-
 export default {
   createJournal,
   fetchJournals,
@@ -367,5 +356,4 @@ export default {
   getCurrentUser,
   setAuthToken,
   fetchUserHistory,
-  associateEntryImagesWithLocation, // Add this line
 };
