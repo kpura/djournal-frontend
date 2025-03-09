@@ -65,12 +65,14 @@ const RegisterScreen = ({ navigation }) => {
       setLoading(true);
       const userData = await registerUser(name, email, password);
   
-      if (!userData || !userData.userId) {
+      if (!userData || !userData.user_id) {
         throw new Error('Invalid registration response');
       }
   
-      await AsyncStorage.setItem('userId', userData.userId.toString());
-  
+      if (userData.user_id) {
+        await AsyncStorage.setItem('userId', userData.user_id.toString());
+      }
+      
       setLoading(false);
       showAlert('Account created successfully!', () => navigation.navigate('Login'));
     } catch (error) {
