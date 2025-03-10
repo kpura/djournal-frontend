@@ -14,7 +14,7 @@ const Settings = () => {
   
   const [loading, setLoading] = useState(false);
   const [uploadLoading, setUploadLoading] = useState(false);
-  const [userData, setUserData] = useState({ name: 'Guest User', email: 'Personal Info', profile_picture: null });
+  const [userData, setUserData] = useState({ name: 'Traveler', email: 'Personal Info', profile_picture: null });
   const [profileLoading, setProfileLoading] = useState(true);
   const navigation = useNavigation();
 
@@ -124,11 +124,11 @@ const Settings = () => {
 
   const getProfileImageSource = () => {
     if (userData.profile_picture) {
-      return { uri: `http://192.168.1.11:3000${userData.profile_picture}` };
+      return { uri: `http://192.168.1.3:3000${userData.profile_picture}` };
     }
-    return require('../../assets/default-avatar.png');
+    return null;
   };
-  
+
   return (
     <View style={styles.container}>
       <Text style={styles.title}>Settings</Text>
@@ -143,11 +143,14 @@ const Settings = () => {
           >
             {uploadLoading ? (
               <ActivityIndicator size="small" color="#13547D" style={styles.profileImage} />
+            ) : userData.profile_picture ? (
+              <Image source={getProfileImageSource()} style={styles.profileImage} />
             ) : (
-              <Image 
-                source={getProfileImageSource()} 
-                style={styles.profileImage}
-              />
+              <View style={styles.initialsContainer}>
+                <Text style={styles.initialsText}>
+                  {userData.name ? userData.name.charAt(0).toUpperCase() : '?'}
+                </Text>
+              </View>
             )}
             <View style={styles.editIconContainer}>
               <Icon name="camera" size={14} color="#fff" />
@@ -211,7 +214,7 @@ const styles = StyleSheet.create({
   manageAccountInfo: {
     flex: 1,
     justifyContent: 'center',
-    marginLeft: 15,  // Add margin for spacing between image and text
+    marginLeft: 20,
   },
   username: {
     fontSize: 20,
@@ -289,6 +292,22 @@ const styles = StyleSheet.create({
     borderWidth: 2,
     borderColor: '#fff',
   },
+  initialsContainer: {
+    width: 60,
+    height: 60,
+    borderRadius: 30,
+    backgroundColor: '#13547D',
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderWidth: 2,
+    borderColor: '#fff',
+  },
+  initialsText: {
+    fontSize: 24,
+    color: '#fff',
+    fontFamily: 'Poppins_600SemiBold',
+    marginTop: 5,
+  },  
 });
 
 export default Settings;

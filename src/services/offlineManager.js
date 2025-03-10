@@ -593,6 +593,73 @@ class OfflineManager {
       throw error;
     }
   }
+
+  async downloadAllData() {
+    if (!this.isOnline) {
+      throw new Error('You need an internet connection to download data for offline use');
+    }
+    
+    try {
+      // 1. Get and store all journals
+      const journalsResponse = await fetch('/api/journals', {
+        headers: {
+          'Authorization': `Bearer ${await this.getToken()}`
+        }
+      });
+      
+      if (!journalsResponse.ok) {
+        throw new Error('Failed to fetch journals');
+      }
+      
+      const journals = await journalsResponse.json();
+      await AsyncStorage.setItem('offline_journals', JSON.stringify(journals));
+      
+      // 2. Get and store entries for each journal
+      const allEntries = [];
+      
+      for (const journal of journals) {
+        const entriesResponse = await fetch(`/api/entries/${journal.journal_id}`, {
+          headers: {
+            'Authorization': `Bearer ${await this.getToken()}`
+          }
+        });
+        
+        if (!entriesResponse.ok) {
+          console.warn(`Failed to fetch entries for journal ${journal.journal_id}`);
+          continue;
+        }
+        
+        const entriesData = await entriesResponse.json();
+        allEntries.push(...entriesData.data);
+      }
+      
+      // 3. Save all entries to storage
+      await AsyncStorage.setItem('offline_entries', JSON.stringify(allEntries));
+      
+      // 4. Set a flag indicating data is downloaded and ready
+      await AsyncStorage.setItem('offline_data_ready', 'true');
+      
+      return {
+        success: true,
+        journalCount: journals.length,
+        entryCount: allEntries.length
+      };
+    } catch (error) {
+      console.error('Error downloading all data:', error);
+      throw error;
+    }
+  }
+  
+  // Add this method to check if offline data is ready
+  async isOfflineDataReady() {
+    try {
+      const isReady = await AsyncStorage.getItem('offline_data_ready');
+      return isReady === 'true';
+    } catch (error) {
+      console.error('Error checking offline data status:', error);
+      return false;
+    }
+  }
 }
 
 export default new OfflineManager();

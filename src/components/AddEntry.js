@@ -103,7 +103,7 @@ const AddEntry = ({ visible, onClose, journalId, entry }) => {
       let images = [];
       if (entry.entry_images && entry.entry_images !== 'null') {
         images = JSON.parse(entry.entry_images).map(img => 
-          img.startsWith('http') ? img : `http://192.168.1.11:3000${img}`
+          img.startsWith('http') ? img : `http://192.168.1.3:3000${img}`
         );
       }
       setEntryImages(images);

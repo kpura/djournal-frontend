@@ -109,7 +109,7 @@ function MainTabNavigator() {
         tabBarLabel: ({ focused }) => (
           focused ? <Text style={{ fontSize: 12, color: '#13547D', fontFamily: 'Poppins_600SemiBold' }}>{route.name}</Text> : null
         ),
-        tabBarInactiveTintColor: '#237CA2',
+        tabBarInactiveTintColor: '#ccc',
         tabBarStyle: {
           display: 'flex',
           borderTopWidth: 0.5,

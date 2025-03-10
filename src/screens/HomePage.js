@@ -54,7 +54,7 @@ const HomePage = () => {
           : userData.profile_picture;
         
         const timestamp = Date.now();
-        setProfilePicture(`http://192.168.1.11:3000/${picturePath}?t=${timestamp}`);
+        setProfilePicture(`http://192.168.1.3:3000/${picturePath}?t=${timestamp}`);
       } else {
         setProfilePicture(null);
       }
@@ -98,7 +98,7 @@ const HomePage = () => {
 
     setLoading(true);
     try {
-      const response = await axios.get('http://192.168.1.11:3000/api/recommendations', {
+      const response = await axios.get('http://192.168.1.3:3000/api/recommendations', {
         headers: { 'Authorization': `Bearer ${token}` }
       });
 
@@ -114,14 +114,12 @@ const HomePage = () => {
 
   const onRefresh = async () => {
     setRefreshing(true);
-    // Refresh profile picture by updating the timestamp
     setProfileLastUpdated(Date.now());
     await fetchRecommendations();
     setRefreshing(false);
   };
 
   const refreshProfilePicture = () => {
-    // Function that can be called to refresh profile picture
     setProfileLastUpdated(Date.now());
   };
 
@@ -145,7 +143,6 @@ const HomePage = () => {
                 <Image 
                   source={{ uri: profilePicture }} 
                   style={styles.profilePicture} 
-                  // Make sure to set cache control
                   onError={() => console.log("Error loading profile picture")}
                 />
               ) : (
@@ -158,7 +155,7 @@ const HomePage = () => {
             </TouchableOpacity>
             
             <View style={styles.greetingTextContainer}>
-              <Text style={styles.headerGreeting}>{greeting}, {userName}!</Text>
+              <Text style={styles.headerGreeting}>{userName}</Text>
             </View>
             
             <TouchableOpacity
@@ -254,12 +251,13 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     borderWidth: 2,
-    borderColor: '#ffffff',
+    borderColor: '#13547D',
   },
   defaultProfileInitial: {
     fontSize: 22,
     fontFamily: 'Poppins_600SemiBold',
     color: '#13547D',
+    marginTop: 5,
   },
   greetingTextContainer: {
     flex: 1,

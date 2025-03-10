@@ -281,8 +281,7 @@ const DataVisualization = () => {
       });
     }
     
-    // Most active day
-    const dayOfWeekCounts = [0, 0, 0, 0, 0, 0, 0]; // Sun, Mon, ...
+    const dayOfWeekCounts = [0, 0, 0, 0, 0, 0, 0];
     historyData.entries.forEach(entry => {
       if (entry.entry_datetime) {
         try {
@@ -309,9 +308,7 @@ const DataVisualization = () => {
       });
     }
 
-    // If we have more than 5 entries, add a consistency insight
     if (totalEntries >= 5) {
-      // Count consistent days (days with entries)
       const consistentDays = Object.keys(entryCounts).length;
       const daysInMonth = new Date(selectedMonth.getFullYear(), selectedMonth.getMonth() + 1, 0).getDate();
       const consistencyPercentage = Math.round((consistentDays / daysInMonth) * 100);
@@ -551,7 +548,7 @@ const styles = StyleSheet.create({
   },
   section: {
     backgroundColor: 'white',
-    borderRadius: 15,
+    borderRadius: 20,
     padding: 16,
     marginBottom: 10,
     elevation: 2,
@@ -578,17 +575,17 @@ const styles = StyleSheet.create({
     fontFamily: 'Poppins_400Regular',
   },
   calendarContainer: {
-    marginTop: 10,
-    marginBottom: 10,
+    marginTop: 5,
+    marginBottom: 5,
   },
   calendarHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 10,
+    marginBottom: 20,
   },
   calendarTitle: {
-    fontSize: 16,
+    fontSize: 18,
     fontFamily: 'Poppins_600SemiBold',
     color: '#333',
   },
@@ -629,10 +626,10 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
   },
   calendarDot: {
-    width: 6,
-    height: 6,
-    borderRadius: 3,
-    marginTop: 2,
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    marginTop: 4,
   },
   legendContainer: {
     flexDirection: 'row',

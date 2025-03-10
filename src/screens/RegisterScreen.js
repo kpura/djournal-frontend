@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { 
-  View, Text, TextInput, TouchableOpacity, StyleSheet, ActivityIndicator, Modal 
+  View, Text, TextInput, TouchableOpacity, StyleSheet, ActivityIndicator, Modal, ScrollView
 } from 'react-native';
 import { registerUser } from '../api';
 import { useFonts, Poppins_400Regular, Poppins_600SemiBold } from '@expo-google-fonts/poppins';
@@ -13,6 +13,7 @@ const RegisterScreen = ({ navigation }) => {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
+  const [securityAnswer, setSecurityAnswer] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [loading, setLoading] = useState(false);
@@ -29,6 +30,7 @@ const RegisterScreen = ({ navigation }) => {
       setEmail('');
       setPassword('');
       setConfirmPassword('');
+      setSecurityAnswer('');
       setShowPassword(false);
       setShowConfirmPassword(false);
     }, [])
@@ -45,7 +47,7 @@ const RegisterScreen = ({ navigation }) => {
   };
 
   const handleRegister = async () => {
-    if (!name || !email || !password || !confirmPassword) {
+    if (!name || !email || !password || !confirmPassword || !securityAnswer) {
       showAlert('Please fill in all fields');
       return;
     }
@@ -68,7 +70,7 @@ const RegisterScreen = ({ navigation }) => {
   
     try {
       setLoading(true);
-      const userData = await registerUser(name, email, password);
+      const userData = await registerUser(name, email, password, securityAnswer);
   
       if (!userData || !userData.user_id) {
         throw new Error('Invalid registration response');
@@ -96,97 +98,113 @@ const RegisterScreen = ({ navigation }) => {
   }
 
   return (
-    <View style={styles.container}>
-      <Text style={styles.title}>Create Account</Text>
-      <Text style={styles.subtitle}>Sign up to get started</Text>
+    <ScrollView style={styles.scrollContainer}>
+      <View style={styles.container}>
+        <Text style={styles.title}>Create Account</Text>
+        <Text style={styles.subtitle}>Sign up to get started</Text>
 
-      <View style={styles.form}>
-        <View style={styles.inputContainer}>
-          <Text style={styles.label}>Name</Text>
-          <TextInput
-            style={styles.input}
-            placeholder="Enter your name"
-            value={name}
-            onChangeText={setName}
-          />
-        </View>
-
-        <View style={styles.inputContainer}>
-          <Text style={styles.label}>Email</Text>
-          <TextInput
-            style={styles.input}
-            placeholder="Enter your email"
-            value={email}
-            onChangeText={setEmail}
-            keyboardType="email-address"
-            autoCapitalize="none"
-          />
-        </View>
-
-        <View style={styles.inputContainer}>
-          <Text style={styles.label}>Password</Text>
-          <View style={styles.passwordContainer}>
+        <View style={styles.form}>
+          <View style={styles.inputContainer}>
+            <Text style={styles.label}>Name</Text>
             <TextInput
-              style={styles.passwordInput}
-              placeholder="Create a password"
-              value={password}
-              onChangeText={setPassword}
-              secureTextEntry={!showPassword}
+              style={styles.input}
+              placeholder="Enter your name"
+              value={name}
+              onChangeText={setName}
             />
-            <TouchableOpacity onPress={() => setShowPassword(!showPassword)}>
-              <Ionicons name={showPassword ? 'eye' : 'eye-off'} size={24} color="#6c757d" />
-            </TouchableOpacity>
           </View>
-        </View>
 
-        <View style={styles.inputContainer}>
-          <Text style={styles.label}>Confirm Password</Text>
-          <View style={styles.passwordContainer}>
+          <View style={styles.inputContainer}>
+            <Text style={styles.label}>Email</Text>
             <TextInput
-              style={styles.passwordInput}
-              placeholder="Confirm your password"
-              value={confirmPassword}
-              onChangeText={setConfirmPassword}
-              secureTextEntry={!showConfirmPassword}
+              style={styles.input}
+              placeholder="Enter your email"
+              value={email}
+              onChangeText={setEmail}
+              keyboardType="email-address"
+              autoCapitalize="none"
             />
-            <TouchableOpacity onPress={() => setShowConfirmPassword(!showConfirmPassword)}>
-              <Ionicons name={showConfirmPassword ? 'eye' : 'eye-off'} size={24} color="#6c757d" />
-            </TouchableOpacity>
           </View>
-        </View>
 
-        <TouchableOpacity style={styles.button} onPress={handleRegister} disabled={loading}>
-          <Text style={styles.buttonText}>
-            {loading ? 'Creating account...' : 'Register'}
-          </Text>
-        </TouchableOpacity>
+          <View style={styles.inputContainer}>
+            <Text style={styles.label}>Password</Text>
+            <View style={styles.passwordContainer}>
+              <TextInput
+                style={styles.passwordInput}
+                placeholder="Create a password"
+                value={password}
+                onChangeText={setPassword}
+                secureTextEntry={!showPassword}
+              />
+              <TouchableOpacity onPress={() => setShowPassword(!showPassword)}>
+                <Ionicons name={showPassword ? 'eye' : 'eye-off'} size={24} color="#6c757d" />
+              </TouchableOpacity>
+            </View>
+          </View>
 
-        <View style={styles.loginContainer}>
-          <Text style={styles.loginText}>Already have an account? </Text>
-          <TouchableOpacity onPress={() => navigation.navigate('Login')}>
-            <Text style={styles.loginLink}>Login</Text>
+          <View style={styles.inputContainer}>
+            <Text style={styles.label}>Confirm Password</Text>
+            <View style={styles.passwordContainer}>
+              <TextInput
+                style={styles.passwordInput}
+                placeholder="Confirm your password"
+                value={confirmPassword}
+                onChangeText={setConfirmPassword}
+                secureTextEntry={!showConfirmPassword}
+              />
+              <TouchableOpacity onPress={() => setShowConfirmPassword(!showConfirmPassword)}>
+                <Ionicons name={showConfirmPassword ? 'eye' : 'eye-off'} size={24} color="#6c757d" />
+              </TouchableOpacity>
+            </View>
+          </View>
+
+          <View style={styles.inputContainer}>
+            <Text style={styles.securityQuestion}>What is your favorite color?</Text>
+            <TextInput
+              style={styles.input}
+              placeholder="Your answer"
+              value={securityAnswer}
+              onChangeText={setSecurityAnswer}
+            />
+          </View>
+
+          <TouchableOpacity style={styles.button} onPress={handleRegister} disabled={loading}>
+            <Text style={styles.buttonText}>
+              {loading ? 'Creating account...' : 'Register'}
+            </Text>
           </TouchableOpacity>
-        </View>
-      </View>
 
-      <Modal transparent={true} visible={alertVisible} animationType="fade">
-        <View style={styles.modalContainer}>
-          <View style={styles.modalContent}>
-            <Ionicons 
-              name={alertMessage.includes('success') ? 'checkmark-circle' : 'close-circle'} 
-              size={40} 
-              color={alertMessage.includes('success') ? '#28a745' : '#dc3545'} 
-              style={styles.modalIcon} 
-            />
-            <Text style={styles.modalText}>{alertMessage}</Text>
+          <View style={styles.loginContainer}>
+            <Text style={styles.loginText}>Already have an account? </Text>
+            <TouchableOpacity onPress={() => navigation.navigate('Login')}>
+              <Text style={styles.loginLink}>Login</Text>
+            </TouchableOpacity>
           </View>
         </View>
-      </Modal>
-    </View>
+
+        <Modal transparent={true} visible={alertVisible} animationType="fade">
+          <View style={styles.modalContainer}>
+            <View style={styles.modalContent}>
+              <Ionicons 
+                name={alertMessage.includes('success') ? 'checkmark-circle' : 'close-circle'} 
+                size={40} 
+                color={alertMessage.includes('success') ? '#28a745' : '#dc3545'} 
+                style={styles.modalIcon} 
+              />
+              <Text style={styles.modalText}>{alertMessage}</Text>
+            </View>
+          </View>
+        </Modal>
+      </View>
+    </ScrollView>
   );
 };
 
 const styles = StyleSheet.create({
+  scrollContainer: {
+    flex: 1,
+    backgroundColor: '#f8f9fa',
+  },
   container: {
     flex: 1,
     padding: 24,
@@ -220,6 +238,12 @@ const styles = StyleSheet.create({
     fontSize: 16,
     marginBottom: 8,
     color: '#495057',
+  },
+  securityQuestion: {
+    fontFamily: 'Poppins_600SemiBold',
+    fontSize: 16,
+    marginBottom: 8,
+    color: '#13547D',
   },
   input: {
     fontFamily: 'Poppins_400Regular',

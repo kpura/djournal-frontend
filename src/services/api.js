@@ -1,7 +1,7 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import offlineManager from '../offlineManager';
 
-const API_URL = 'http://192.168.1.11:3000';
+const API_URL = 'http://192.168.1.3:3000';
 
 class ApiService {
   constructor() {
@@ -502,6 +502,16 @@ class ApiService {
   async isOnline() {
     return offlineManager.checkConnection();
   }
+
+  async downloadAllDataForOffline() {
+    return offlineManager.downloadAllData();
+  }
+  
+  // Add this method to check offline data status
+  async isOfflineDataReady() {
+    return offlineManager.isOfflineDataReady();
+  }
+  
 }
 
 export default new ApiService();

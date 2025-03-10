@@ -1,10 +1,9 @@
 //index.js
 import axios from 'axios';
-import * as SecureStore from 'expo-secure-store'; // Add this import
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
 const api = axios.create({
-  baseURL: 'http://192.168.1.11:3000/api',
+  baseURL: 'http://192.168.1.3:3000/api',
 });
 
 const API_URL = api.defaults.baseURL;
@@ -229,7 +228,7 @@ export const fetchLocations = async () => {
   }
 };
 
-export const registerUser = async (name, email, password) => {
+export const registerUser = async (name, email, password, securityAnswer) => {
   try {
     const response = await api.post(
       '/auth/register',
@@ -237,6 +236,7 @@ export const registerUser = async (name, email, password) => {
         name,
         email,
         password,
+        securityAnswer,
       }
     );
     
@@ -356,6 +356,36 @@ export const uploadProfilePicture = async (formData) => {
   }
 };
 
+// Add these functions to your api/index.js file
+
+export const checkSecurityAnswer = async (email, securityAnswer) => {
+  try {
+    const response = await api.post('/auth/check-security-answer', {
+      email,
+      securityAnswer
+    });
+    
+    return response.data;
+  } catch (error) {
+    console.error("Error checking security answer:", error.response?.data || error.message);
+    throw new Error(error.response?.data?.message || "Verification failed. Please try again.");
+  }
+};
+
+export const resetPassword = async (email, newPassword) => {
+  try {
+    const response = await api.post('/auth/reset-password', {
+      email,
+      newPassword
+    });
+    
+    return response.data;
+  } catch (error) {
+    console.error("Error resetting password:", error.response?.data || error.message);
+    throw new Error(error.response?.data?.message || "Password reset failed. Please try again.");
+  }
+};
+
 export default {
   createJournal,
   fetchJournals,
@@ -375,4 +405,6 @@ export default {
   setAuthToken,
   fetchUserHistory,
   uploadProfilePicture,
+  checkSecurityAnswer,
+  resetPassword,
 };

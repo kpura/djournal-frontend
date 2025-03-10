@@ -25,8 +25,8 @@ const Recommendation = ({ data }) => {
         <Image
           source={{ 
             uri: data.location_images.startsWith('/') 
-              ? `http://192.168.1.11:3000${data.location_images}` 
-              : `http://192.168.1.11:3000/uploads/${data.location_images}` 
+              ? `http://192.168.1.3:3000${data.location_images}` 
+              : `http://192.168.1.3:3000/uploads/${data.location_images}` 
           }}
           style={styles.image}
           resizeMode="cover"

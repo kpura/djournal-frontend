@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { 
   View, Text, TextInput, TouchableOpacity, StyleSheet, ActivityIndicator, Modal 
 } from 'react-native';
-import { loginUser } from '../api';
+import { loginUser, checkSecurityAnswer, resetPassword } from '../api';
 import { useFocusEffect } from '@react-navigation/native';
 import { useFonts, Poppins_400Regular, Poppins_600SemiBold } from '@expo-google-fonts/poppins';
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -15,6 +15,14 @@ const LoginScreen = ({ navigation }) => {
   const [loading, setLoading] = useState(false);
   const [alertVisible, setAlertVisible] = useState(false);
   const [alertMessage, setAlertMessage] = useState('');
+  const [forgotPasswordModal, setForgotPasswordModal] = useState(false);
+  const [forgotPasswordEmail, setForgotPasswordEmail] = useState('');
+  const [securityAnswer, setSecurityAnswer] = useState('');
+  const [resetStep, setResetStep] = useState(1); // 1: email, 2: security question, 3: new password
+  const [newPassword, setNewPassword] = useState('');
+  const [confirmNewPassword, setConfirmNewPassword] = useState('');
+  const [showNewPassword, setShowNewPassword] = useState(false);
+  const [showConfirmNewPassword, setShowConfirmNewPassword] = useState(false);
 
   const [fontsLoaded] = useFonts({
     Poppins_400Regular,
@@ -61,6 +69,94 @@ const LoginScreen = ({ navigation }) => {
     }
   };
 
+  const handleForgotPassword = () => {
+    setForgotPasswordEmail('');
+    setSecurityAnswer('');
+    setNewPassword('');
+    setConfirmNewPassword('');
+    setResetStep(1);
+    setForgotPasswordModal(true);
+  };
+
+  const handleSubmitEmail = async () => {
+    if (!forgotPasswordEmail) {
+      showAlert('Please enter your email');
+      return;
+    }
+
+    try {
+      setLoading(true);
+      // Ideally verify if email exists in the system first
+      // For now, we'll just proceed to the security question
+      setLoading(false);
+      setResetStep(2);
+    } catch (error) {
+      setLoading(false);
+      showAlert('Error: ' + error.message);
+    }
+  };
+
+  const handleSubmitSecurityAnswer = async () => {
+    if (!securityAnswer) {
+      showAlert('Please enter your answer');
+      return;
+    }
+
+    try {
+      setLoading(true);
+      // Check if security answer is correct
+      const result = await checkSecurityAnswer(forgotPasswordEmail, securityAnswer);
+      
+      if (result.success) {
+        setLoading(false);
+        setResetStep(3);
+      } else {
+        throw new Error('Incorrect security answer');
+      }
+    } catch (error) {
+      setLoading(false);
+      showAlert('Error: ' + error.message);
+    }
+  };
+
+  const handleSubmitNewPassword = async () => {
+    if (!newPassword || !confirmNewPassword) {
+      showAlert('Please fill in all fields');
+      return;
+    }
+
+    if (newPassword.length < 8) {
+      showAlert('Password must be at least 8 characters long');
+      return;
+    }
+
+    if (newPassword !== confirmNewPassword) {
+      showAlert('Passwords do not match');
+      return;
+    }
+
+    try {
+      setLoading(true);
+      // Reset the password
+      const result = await resetPassword(forgotPasswordEmail, newPassword);
+      
+      if (result.success) {
+        setLoading(false);
+        setForgotPasswordModal(false);
+        showAlert('Password reset successfully. Please login with your new password.');
+      } else {
+        throw new Error('Failed to reset password');
+      }
+    } catch (error) {
+      setLoading(false);
+      showAlert('Error: ' + error.message);
+    }
+  };
+
+  const cancelReset = () => {
+    setForgotPasswordModal(false);
+  };
+
   if (!fontsLoaded) {
     return (
       <View style={styles.centered}>
@@ -68,6 +164,119 @@ const LoginScreen = ({ navigation }) => {
       </View>
     );
   }
+
+  const renderForgotPasswordContent = () => {
+    switch (resetStep) {
+      case 1:
+        return (
+          <>
+            <Text style={styles.modalTitle}>Forgot Password</Text>
+            <Text style={styles.modalSubtitle}>Enter your email to reset your password</Text>
+            <TextInput
+              style={styles.modalInput}
+              placeholder="Email"
+              value={forgotPasswordEmail}
+              onChangeText={setForgotPasswordEmail}
+              keyboardType="email-address"
+              autoCapitalize="none"
+            />
+            <View style={styles.modalButtonContainer}>
+              <TouchableOpacity style={styles.modalButtonCancel} onPress={cancelReset}>
+                <Text style={styles.modalButtonCancelText}>Cancel</Text>
+              </TouchableOpacity>
+              <TouchableOpacity 
+                style={styles.modalButtonPrimary} 
+                onPress={handleSubmitEmail}
+                disabled={loading}
+              >
+                <Text style={styles.modalButtonPrimaryText}>Next</Text>
+              </TouchableOpacity>
+            </View>
+          </>
+        );
+      case 2:
+        return (
+          <>
+            <Text style={styles.modalTitle}>Security Question</Text>
+            <Text style={styles.modalSubtitle}>What is your favorite color?</Text>
+            <TextInput
+              style={styles.modalInput}
+              placeholder="Your answer"
+              value={securityAnswer}
+              onChangeText={setSecurityAnswer}
+            />
+            <View style={styles.modalButtonContainer}>
+              <TouchableOpacity style={styles.modalButtonCancel} onPress={() => setResetStep(1)}>
+                <Text style={styles.modalButtonCancelText}>Back</Text>
+              </TouchableOpacity>
+              <TouchableOpacity 
+                style={styles.modalButtonPrimary} 
+                onPress={handleSubmitSecurityAnswer}
+                disabled={loading}
+              >
+                <Text style={styles.modalButtonPrimaryText}>Verify</Text>
+              </TouchableOpacity>
+            </View>
+          </>
+        );
+      case 3:
+        return (
+          <>
+            <Text style={styles.modalTitle}>Create New Password</Text>
+            <Text style={styles.modalSubtitle}>Enter a new password</Text>
+            
+            <View style={styles.modalPasswordContainer}>
+              <TextInput
+                style={styles.modalPasswordInput}
+                placeholder="New password"
+                value={newPassword}
+                onChangeText={setNewPassword}
+                secureTextEntry={!showNewPassword}
+              />
+              <TouchableOpacity onPress={() => setShowNewPassword(!showNewPassword)}>
+                <Ionicons
+                  name={showNewPassword ? 'eye' : 'eye-off'}
+                  size={24}
+                  color="#6c757d"
+                />
+              </TouchableOpacity>
+            </View>
+            
+            <View style={styles.modalPasswordContainer}>
+              <TextInput
+                style={styles.modalPasswordInput}
+                placeholder="Confirm new password"
+                value={confirmNewPassword}
+                onChangeText={setConfirmNewPassword}
+                secureTextEntry={!showConfirmNewPassword}
+              />
+              <TouchableOpacity onPress={() => setShowConfirmNewPassword(!showConfirmNewPassword)}>
+                <Ionicons
+                  name={showConfirmNewPassword ? 'eye' : 'eye-off'}
+                  size={24}
+                  color="#6c757d"
+                />
+              </TouchableOpacity>
+            </View>
+            
+            <View style={styles.modalButtonContainer}>
+              <TouchableOpacity style={styles.modalButtonCancel} onPress={() => setResetStep(2)}>
+                <Text style={styles.modalButtonCancelText}>Back</Text>
+              </TouchableOpacity>
+              <TouchableOpacity 
+                style={styles.modalButtonPrimary} 
+                onPress={handleSubmitNewPassword}
+                disabled={loading}
+              >
+                <Text style={styles.modalButtonPrimaryText}>Reset Password</Text>
+              </TouchableOpacity>
+            </View>
+          </>
+        );
+      default:
+        return null;
+    }
+  };
 
   return (
     <View style={styles.container}>
@@ -107,6 +316,13 @@ const LoginScreen = ({ navigation }) => {
           </View>
         </View>
 
+        <TouchableOpacity 
+          style={styles.forgotPasswordButton} 
+          onPress={handleForgotPassword}
+        >
+          <Text style={styles.forgotPasswordText}>Forgot Password?</Text>
+        </TouchableOpacity>
+
         <TouchableOpacity
           style={styles.button}
           onPress={handleLogin}
@@ -125,6 +341,7 @@ const LoginScreen = ({ navigation }) => {
         </View>
       </View>
 
+      {/* Alert Modal */}
       <Modal
         visible={alertVisible}
         transparent={true}
@@ -141,6 +358,20 @@ const LoginScreen = ({ navigation }) => {
             >
               <Text style={styles.alertButtonText}>OK</Text>
             </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
+
+      {/* Forgot Password Modal */}
+      <Modal
+        visible={forgotPasswordModal}
+        transparent={true}
+        animationType="slide"
+        onRequestClose={() => setForgotPasswordModal(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.forgotPasswordBox}>
+            {renderForgotPasswordContent()}
           </View>
         </View>
       </Modal>
@@ -212,6 +443,15 @@ const styles = StyleSheet.create({
     paddingVertical: 16,
     fontSize: 16,
   },
+  forgotPasswordButton: {
+    alignSelf: 'flex-end',
+    marginBottom: 20,
+  },
+  forgotPasswordText: {
+    fontFamily: 'Poppins_400Regular',
+    color: '#13547D',
+    fontSize: 15,
+  },
   button: {
     backgroundColor: '#13547D',
     borderRadius: 12,
@@ -277,6 +517,89 @@ const styles = StyleSheet.create({
     fontSize: 16,
     color: 'white',
     fontFamily: 'Poppins_600SemiBold',
+  },
+  forgotPasswordBox: {
+    width: '85%',
+    padding: 24,
+    backgroundColor: 'white',
+    borderRadius: 12,
+    alignItems: 'center',
+    elevation: 5,
+  },
+  modalTitle: {
+    fontSize: 22,
+    fontFamily: 'Poppins_600SemiBold',
+    color: '#13547D',
+    marginBottom: 8,
+  },
+  modalSubtitle: {
+    fontSize: 16,
+    fontFamily: 'Poppins_400Regular',
+    color: '#6c757d',
+    marginBottom: 24,
+    textAlign: 'center',
+  },
+  modalInput: {
+    fontFamily: 'Poppins_400Regular',
+    borderWidth: 1,
+    borderColor: '#ced4da',
+    borderRadius: 12,
+    padding: 16,
+    fontSize: 16,
+    backgroundColor: '#ffffff',
+    width: '100%',
+    marginBottom: 16,
+  },
+  modalPasswordContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: '#ced4da',
+    borderRadius: 12,
+    paddingHorizontal: 16,
+    backgroundColor: '#ffffff',
+    marginBottom: 16,
+    width: '100%',
+  },
+  modalPasswordInput: {
+    flex: 1,
+    fontFamily: 'Poppins_400Regular',
+    paddingVertical: 16,
+    fontSize: 16,
+  },
+  modalButtonContainer: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    width: '100%',
+    marginTop: 16,
+  },
+  modalButtonPrimary: {
+    backgroundColor: '#13547D',
+    borderRadius: 12,
+    padding: 16,
+    alignItems: 'center',
+    flex: 1,
+    marginLeft: 8,
+  },
+  modalButtonPrimaryText: {
+    fontFamily: 'Poppins_600SemiBold',
+    color: '#ffffff',
+    fontSize: 14,
+  },
+  modalButtonCancel: {
+    backgroundColor: '#f8f9fa',
+    borderWidth: 1,
+    borderColor: '#ced4da',
+    borderRadius: 12,
+    padding: 16,
+    alignItems: 'center',
+    flex: 1,
+    marginRight: 8,
+  },
+  modalButtonCancelText: {
+    fontFamily: 'Poppins_600SemiBold',
+    color: '#6c757d',
+    fontSize: 16,
   },
 });
 

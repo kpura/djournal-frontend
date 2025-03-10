@@ -1,11 +1,11 @@
 import React, { useState } from 'react';
-import { View, Text, Image, StyleSheet, TouchableOpacity, FlatList, Modal, Dimensions } from 'react-native';
+import { View, Text, Image, StyleSheet, TouchableOpacity, FlatList, Modal, Dimensions, ScrollView } from 'react-native';
 import { useFonts, Poppins_400Regular, Poppins_600SemiBold } from '@expo-google-fonts/poppins';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useNavigation, useRoute } from '@react-navigation/native';
 import { Svg, Circle } from 'react-native-svg';
 
-const SERVER_URL = 'http://192.168.1.11:3000';
+const SERVER_URL = 'http://192.168.1.3:3000';
 const screenWidth = Dimensions.get('window').width;
 const imageSize = (screenWidth - 50) / 3;
 
@@ -34,7 +34,7 @@ const CircularProgress = ({ percentage, color }) => {
 };
 
 const AboutTab = ({ description, positivePercent, neutralPercent, negativePercent }) => (
-  <View style={styles.tabContent}>
+  <ScrollView style={styles.tabContent} showsVerticalScrollIndicator={false}>
     <Text style={styles.locationDescription}>{description}</Text>
     <View style={styles.moodContainer}>
       <Text style={styles.moodTitle}>Traveler Mood Insights</Text>
@@ -53,7 +53,8 @@ const AboutTab = ({ description, positivePercent, neutralPercent, negativePercen
         </View>
       </View>
     </View>
-  </View>
+    {/* You can add more content here that will be scrollable */}
+  </ScrollView>
 );
 
 const TravelerPhotosTab = ({ images, onImagePress }) => (
@@ -170,7 +171,7 @@ const styles = StyleSheet.create({
   },
   image: { 
     width: '100%', 
-    height: 300
+    height: 350
   },
   imageContainer: { 
     backgroundColor: '#f0f0f0', 
