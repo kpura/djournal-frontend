@@ -4,8 +4,9 @@ import { useFonts, Poppins_400Regular, Poppins_600SemiBold } from '@expo-google-
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useNavigation, useRoute } from '@react-navigation/native';
 import { Svg, Circle } from 'react-native-svg';
+import { SafeAreaView, StatusBar, Platform } from 'react-native';
 
-const SERVER_URL = 'http://192.168.1.3:3000';
+const SERVER_URL = 'https://api.djournalmood.com';
 const screenWidth = Dimensions.get('window').width;
 const imageSize = (screenWidth - 50) / 3;
 
@@ -122,56 +123,64 @@ const PlaceDetail = () => {
       : [];
 
   return (
-    <View style={styles.container}>
-      {locationImageUri ? (
-        <Image source={{ uri: locationImageUri }} style={styles.image} resizeMode="cover" />
-      ) : (
-        <View style={[styles.image, styles.imageContainer]}>
-          <Text style={styles.placeholderText}>No image available</Text>
-        </View>
-      )}
-      <TouchableOpacity style={styles.backButton} onPress={() => navigation.goBack()}>
-        <MaterialCommunityIcons name="arrow-left" size={24} color="#fff" />
-      </TouchableOpacity>
-      <View style={styles.contentContainer}>
-        <Text style={styles.locationName}>{location_name}</Text>
-        <View style={styles.locationContainer}>
-          <MaterialCommunityIcons name="map-marker" size={20} color="#13547D" />
-          <Text style={styles.locationPlace}>{location_place}</Text>
-        </View>
-        <View style={styles.tabContainer}>
-          <TouchableOpacity style={[styles.tabButton, selectedTab === 'About' && styles.activeTab]} onPress={() => setSelectedTab('About')}>
-            <Text style={[styles.tabText, selectedTab === 'About' && styles.activeTabText]}>About</Text>
-          </TouchableOpacity>
-          <TouchableOpacity style={[styles.tabButton, selectedTab === 'Traveler Photos' && styles.activeTab]} onPress={() => setSelectedTab('Traveler Photos')}>
-            <Text style={[styles.tabText, selectedTab === 'Traveler Photos' && styles.activeTabText]}>Traveler Photos</Text>
-          </TouchableOpacity>
-        </View>
-        {selectedTab === 'About' ? (
-          <AboutTab description={location_description} positivePercent={overall_positive} neutralPercent={overall_neutral} negativePercent={overall_negative} />
+    <SafeAreaView style={styles.safeArea}>
+        <StatusBar backgroundColor="#f8f8f8" barStyle="dark-content" />
+      <View style={styles.container}>
+        {locationImageUri ? (
+          <Image source={{ uri: locationImageUri }} style={styles.image} resizeMode="cover" />
         ) : (
-          <TravelerPhotosTab images={normalizedImages} onImagePress={handleImagePress} />
+          <View style={[styles.image, styles.imageContainer]}>
+            <Text style={styles.placeholderText}>No image available</Text>
+          </View>
         )}
-      </View>
-      <Modal visible={modalVisible} transparent={true} animationType="fade">
-        <View style={styles.modalContainer}>
-          <TouchableOpacity style={styles.closeButton} onPress={() => setModalVisible(false)}>
-            <MaterialCommunityIcons name="close" size={30} color="#fff" />
-          </TouchableOpacity>
-          {selectedImage && <Image source={{ uri: selectedImage }} style={styles.fullImage} resizeMode="contain" />}
+        <TouchableOpacity style={styles.backButton} onPress={() => navigation.goBack()}>
+          <MaterialCommunityIcons name="arrow-left" size={24} color="#fff" />
+        </TouchableOpacity>
+        <View style={styles.contentContainer}>
+          <Text style={styles.locationName}>{location_name}</Text>
+          <View style={styles.locationContainer}>
+            <MaterialCommunityIcons name="map-marker" size={20} color="#13547D" />
+            <Text style={styles.locationPlace}>{location_place}</Text>
+          </View>
+          <View style={styles.tabContainer}>
+            <TouchableOpacity style={[styles.tabButton, selectedTab === 'About' && styles.activeTab]} onPress={() => setSelectedTab('About')}>
+              <Text style={[styles.tabText, selectedTab === 'About' && styles.activeTabText]}>About</Text>
+            </TouchableOpacity>
+            <TouchableOpacity style={[styles.tabButton, selectedTab === 'Traveler Photos' && styles.activeTab]} onPress={() => setSelectedTab('Traveler Photos')}>
+              <Text style={[styles.tabText, selectedTab === 'Traveler Photos' && styles.activeTabText]}>Traveler Photos</Text>
+            </TouchableOpacity>
+          </View>
+          {selectedTab === 'About' ? (
+            <AboutTab description={location_description} positivePercent={overall_positive} neutralPercent={overall_neutral} negativePercent={overall_negative} />
+          ) : (
+            <TravelerPhotosTab images={normalizedImages} onImagePress={handleImagePress} />
+          )}
         </View>
-      </Modal>
-    </View>
+        <Modal visible={modalVisible} transparent={true} animationType="fade">
+          <View style={styles.modalContainer}>
+            <TouchableOpacity style={styles.closeButton} onPress={() => setModalVisible(false)}>
+              <MaterialCommunityIcons name="close" size={30} color="#fff" />
+            </TouchableOpacity>
+            {selectedImage && <Image source={{ uri: selectedImage }} style={styles.fullImage} resizeMode="contain" />}
+          </View>
+        </Modal>
+      </View>
+    </SafeAreaView>
   );
 };
 
 const styles = StyleSheet.create({
+  safeArea: {
+    flex: 1,
+    backgroundColor: '#f8f8f8',
+    paddingTop: Platform.OS === 'android' ? StatusBar.currentHeight : 0,
+  },
   container: { 
     flex: 1 
   },
   image: { 
     width: '100%', 
-    height: 350
+    height: 330
   },
   imageContainer: { 
     backgroundColor: '#f0f0f0', 
@@ -185,7 +194,7 @@ const styles = StyleSheet.create({
   },
   backButton: { 
     position: 'absolute', 
-    top: 50, 
+    top: 15, 
     left: 15, 
     backgroundColor: '#00000080', 
     padding: 5, 
@@ -207,7 +216,7 @@ const styles = StyleSheet.create({
   locationContainer: { 
     flexDirection: 'row', 
     alignItems: 'center', 
-    marginBottom: 20 
+    marginBottom: 10 
   },
   locationPlace: { 
     fontSize: 16, 

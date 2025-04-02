@@ -4,10 +4,13 @@ import { WebView } from 'react-native-webview';
 import Icon from 'react-native-vector-icons/FontAwesome5';
 import { useFonts, Poppins_400Regular, Poppins_600SemiBold } from '@expo-google-fonts/poppins';
 import { fetchLocations } from '../api';
+import { SafeAreaView, StatusBar, Platform } from 'react-native';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import NetInfo from '@react-native-community/netinfo';
 
 const SORSOGON_COORDINATES = {
-  latitude: 12.9884,
-  longitude: 124.0133
+  latitude: 12.8884,
+  longitude: 124.0100
 };
 
 const { height } = Dimensions.get('window');
@@ -21,7 +24,7 @@ const Map = () => {
   const [selectedLocation, setSelectedLocation] = useState(null);
   const [showBottomSheet, setShowBottomSheet] = useState(false);
   const webViewRef = useRef(null);
-  
+  const [isOnline, setIsOnline] = useState(true);
   const bottomSheetAnimatedValue = useRef(new Animated.Value(0)).current;
   
   const [fontsLoaded] = useFonts({
@@ -29,17 +32,37 @@ const Map = () => {
     Poppins_600SemiBold,
   });
 
+  // Monitor network connectivity
+  useEffect(() => {
+    const unsubscribe = NetInfo.addEventListener(state => {
+      setIsOnline(state.isConnected && state.isInternetReachable);
+    });
+    return () => unsubscribe();
+  }, []);
+
   useEffect(() => {
     const getLocations = async () => {
       try {
-        const data = await fetchLocations();
-        setLocations(data);
-        setFilteredLocations(data);
+        const netState = await NetInfo.fetch();
+        if (netState.isConnected && netState.isInternetReachable) {
+          const data = await fetchLocations();
+          setLocations(data);
+          setFilteredLocations(data);
+          await AsyncStorage.setItem('locations', JSON.stringify(data));
+        } else {
+          const cachedLocations = await AsyncStorage.getItem('locations');
+          if (cachedLocations) {
+            const parsedLocations = JSON.parse(cachedLocations);
+            setLocations(parsedLocations);
+            setFilteredLocations(parsedLocations);
+          } else {
+            Alert.alert('Offline', 'No cached locations available.');
+          }
+        }
       } catch (error) {
         console.error('Failed to fetch locations:', error);
       }
     };
-    
     getLocations();
   }, []);
 
@@ -270,90 +293,96 @@ const Map = () => {
   if (!fontsLoaded) return null;
 
   return (
-    <View style={styles.container}>
-      <WebView
-        ref={webViewRef}
-        originWhitelist={['*']}
-        source={{ html: createLeafletHTML() }}
-        style={styles.map}
-        onMessage={handleMapEvent}
-        javaScriptEnabled={true}
-        domStorageEnabled={true}
-        geolocationEnabled={true}
-      />
-      
-      <View style={styles.searchContainer}>
-        <View style={styles.searchInputContainer}>
-          <Icon name="search" size={18} color="#ccc" style={styles.searchIcon} />
-          <TextInput
-            style={styles.searchInput}
-            placeholder="Search tourist spots"
-            value={searchQuery}
-            onChangeText={handleSearch}
-            placeholderTextColor="#ccc"
-          />
-          {searchQuery ? (
-            <TouchableOpacity onPress={clearSearch} style={styles.clearButton}>
-              <Icon name="times-circle" size={20} color="#ccc" />
-            </TouchableOpacity>
-          ) : null}
-        </View>
+    <SafeAreaView style={styles.safeArea}>
+      <StatusBar backgroundColor="#f8f8f8" barStyle="dark-content" />
+      <View style={styles.container}>
+        <WebView
+          ref={webViewRef}
+          originWhitelist={['*']}
+          source={{ html: createLeafletHTML() }}
+          style={styles.map}
+          onMessage={handleMapEvent}
+          javaScriptEnabled={true}
+          domStorageEnabled={true}
+          geolocationEnabled={true}
+        />
         
-        {showResults && filteredLocations.length > 0 && (
-          <FlatList
-            data={filteredLocations}
-            keyExtractor={(item, index) => index.toString()}
-            style={styles.resultsList}
-            renderItem={({ item }) => (
-              <TouchableOpacity 
-                style={styles.resultItem}
-                onPress={() => handleLocationSelect(item)}
-              >
-                <Text style={styles.resultName}>{item.location_name}</Text>
-                <Text style={styles.resultPlace}>{item.location_place}</Text>
+        <View style={styles.searchContainer}>
+          <View style={styles.searchInputContainer}>
+            <Icon name="search" size={18} color="#ccc" style={styles.searchIcon} />
+            <TextInput
+              style={styles.searchInput}
+              placeholder="Search tourist spots"
+              value={searchQuery}
+              onChangeText={handleSearch}
+              placeholderTextColor="#ccc"
+            />
+            {searchQuery ? (
+              <TouchableOpacity onPress={clearSearch} style={styles.clearButton}>
+                <Icon name="times-circle" size={20} color="#ccc" />
               </TouchableOpacity>
-            )}
-          />
-        )}
-      </View>
-      
-      <Animated.View 
-        style={[
-          styles.bottomSheet,
-          { transform: [{ translateY }] }
-        ]}
-      >
-        <View style={styles.bottomSheetHeader}>
-          <View style={styles.bottomSheetHandle} />
+            ) : null}
+          </View>
+          
+          {showResults && filteredLocations.length > 0 && (
+            <FlatList
+              data={filteredLocations}
+              keyExtractor={(item, index) => index.toString()}
+              style={styles.resultsList}
+              renderItem={({ item }) => (
+                <TouchableOpacity 
+                  style={styles.resultItem}
+                  onPress={() => handleLocationSelect(item)}
+                >
+                  <Text style={styles.resultName}>{item.location_name}</Text>
+                  <Text style={styles.resultPlace}>{item.location_place}</Text>
+                </TouchableOpacity>
+              )}
+            />
+          )}
         </View>
         
-        {selectedLocation && (
-          <ScrollView style={styles.locationInfoContainer}>
-            {selectedLocation.location_images ? (
-              <Image
-                source={{ 
-                  uri: selectedLocation.location_images.startsWith('/') 
-                    ? `http://192.168.1.3:3000${selectedLocation.location_images}`
-                    : `http://192.168.1.3:3000/uploads/${selectedLocation.location_images}` 
-                }}
-                style={styles.locationImage}
-                resizeMode="cover"
-              />
-            ) : (
-              <View style={styles.imageContainer}>
-                <Text style={styles.placeholderText}>No image available</Text>
-              </View>
-            )}
-            <Text style={styles.locationName}>{selectedLocation.location_name}</Text>
-            <Text style={styles.locationPlace}>{selectedLocation.location_place}</Text>
-          </ScrollView>
-        )}
-      </Animated.View>
-    </View>
+        <Animated.View 
+          style={[
+            styles.bottomSheet,
+            { transform: [{ translateY }] }
+          ]}
+        >
+          <View style={styles.bottomSheetHeader}>
+            <View style={styles.bottomSheetHandle} />
+          </View>
+          
+          {selectedLocation && (
+            <ScrollView style={styles.locationInfoContainer}>
+              {selectedLocation.location_images ? (
+                <Image
+                  source={{ 
+                    uri: `https://api.djournalmood.com${selectedLocation.location_images}`
+                  }}
+                  style={styles.locationImage}
+                  resizeMode="cover"
+                />
+              ) : (
+                <View style={styles.imageContainer}>
+                  <Text style={styles.placeholderText}>No image available</Text>
+                </View>
+              )}
+              <Text style={styles.locationName}>{selectedLocation.location_name}</Text>
+              <Text style={styles.locationPlace}>{selectedLocation.location_place}</Text>
+            </ScrollView>
+          )}
+        </Animated.View>
+      </View>
+    </SafeAreaView> 
   );
 };
 
 const styles = StyleSheet.create({
+  safeArea: {
+    flex: 1,
+    backgroundColor: '#f8f8f8',
+    paddingTop: Platform.OS === 'android' ? StatusBar.currentHeight : 0,
+  },
   container: {
     flex: 1,
   },
@@ -362,7 +391,7 @@ const styles = StyleSheet.create({
   },
   searchContainer: {
     position: 'absolute',
-    top: 60,
+    top: 20,
     left: 20,
     right: 20,
     zIndex: 1,
@@ -381,13 +410,13 @@ const styles = StyleSheet.create({
   },
   searchInput: {
     flex: 1,
-    fontSize: 16,
+    fontSize: 14,
     fontFamily: 'Poppins_400Regular',
     color: '#333',
-    top: 2,
+    top: 1,
   }, 
   clearButton: {
-    padding: 8,
+    padding: 10,
   },
   resultsList: {
     backgroundColor: 'white',

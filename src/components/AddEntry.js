@@ -1,10 +1,13 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { Modal, View, Text, TextInput, StyleSheet, TouchableOpacity, Alert, Image, ScrollView, FlatList, ActivityIndicator, BackHandler, Switch } from 'react-native';
+import { 
+  Modal, View, Text, TextInput, StyleSheet, TouchableOpacity, Alert, Image, ScrollView, FlatList, ActivityIndicator, BackHandler, Switch, Platform 
+} from 'react-native';
 import { createEntry, updateEntry, fetchLocations } from '../api';
 import { Ionicons } from '@expo/vector-icons';
 import * as ImagePicker from 'expo-image-picker';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import Tooltip from './Tooltip';
+import NetInfo from '@react-native-community/netinfo';
 
 const AddEntry = ({ visible, onClose, journalId, entry }) => {
   const [description, setDescription] = useState('');
@@ -26,7 +29,6 @@ const AddEntry = ({ visible, onClose, journalId, entry }) => {
   const [hasDraft, setHasDraft] = useState(false);
   const [displayImagesInRecommendation, setDisplayImagesInRecommendation] = useState(true);
   const [imageOptionsVisible, setImageOptionsVisible] = useState(false);
-  
   const [initialData, setInitialData] = useState({
     description: '',
     locationName: '',
@@ -34,13 +36,35 @@ const AddEntry = ({ visible, onClose, journalId, entry }) => {
     entryImages: [],
     displayImagesInRecommendation: true,
   });
+  // New state for network connectivity
+  const [isOnline, setIsOnline] = useState(true);
 
+  // Monitor network connectivity
+  useEffect(() => {
+    const unsubscribe = NetInfo.addEventListener(state => {
+      setIsOnline(state.isConnected && state.isInternetReachable);
+    });
+    return () => unsubscribe();
+  }, []);
+
+  // Load locations with offline fallback
   const loadLocations = async () => {
     setIsLoading(true);
     setError(null);
     try {
-      const data = await fetchLocations();
-      setLocations(data);
+      if (isOnline) {
+        const data = await fetchLocations();
+        setLocations(data);
+        await AsyncStorage.setItem('locations', JSON.stringify(data));
+      } else {
+        const cachedLocations = await AsyncStorage.getItem('locations');
+        if (cachedLocations) {
+          setLocations(JSON.parse(cachedLocations));
+        } else {
+          setError('Locations not available offline.');
+          showTooltip('Locations not available offline.', 'top');
+        }
+      }
     } catch (err) {
       setError('Failed to load locations. Please try again.');
       showTooltip('Failed to load locations. Please try again.', 'top');
@@ -51,8 +75,7 @@ const AddEntry = ({ visible, onClose, journalId, entry }) => {
 
   useEffect(() => {
     const checkForDrafts = async () => {
-      if (entry) return; 
-      
+      if (entry) return;
       try {
         const draft = await AsyncStorage.getItem(`draft_${journalId}`);
         if (draft) {
@@ -62,7 +85,6 @@ const AddEntry = ({ visible, onClose, journalId, entry }) => {
         console.error('Error checking for drafts:', error);
       }
     };
-    
     if (visible) {
       checkForDrafts();
     }
@@ -72,7 +94,7 @@ const AddEntry = ({ visible, onClose, journalId, entry }) => {
     if (locationModalVisible) {
       loadLocations();
     }
-  }, [locationModalVisible]);
+  }, [locationModalVisible, isOnline]);
 
   useEffect(() => {
     if (visible && !entry) {
@@ -85,7 +107,6 @@ const AddEntry = ({ visible, onClose, journalId, entry }) => {
         displayImagesInRecommendation: true,
       });
     }
-
     if (entry) {
       const entryDesc = entry.entry_description || '';
       const entryLocationName = entry.entry_location_name || '';
@@ -103,7 +124,7 @@ const AddEntry = ({ visible, onClose, journalId, entry }) => {
       let images = [];
       if (entry.entry_images && entry.entry_images !== 'null') {
         images = JSON.parse(entry.entry_images).map(img => 
-          img.startsWith('http') ? img : `http://192.168.1.3:3000${img}`
+          img.startsWith('https') ? img : `http://192.168.1.3:3000${img}`
         );
       }
       setEntryImages(images);
@@ -119,7 +140,6 @@ const AddEntry = ({ visible, onClose, journalId, entry }) => {
         setImageOptionsVisible(true);
       }
     }
-    
     setHasUnsavedChanges(false);
   }, [entry, visible]);
   
@@ -131,7 +151,6 @@ const AddEntry = ({ visible, onClose, journalId, entry }) => {
         locationId !== initialData.locationId ||
         displayImagesInRecommendation !== initialData.displayImagesInRecommendation ||
         JSON.stringify(entryImages) !== JSON.stringify(initialData.entryImages);
-      
       setHasUnsavedChanges(hasChanges);
     }
   }, [description, locationName, locationId, entryImages, displayImagesInRecommendation, visible, initialData]);
@@ -140,26 +159,20 @@ const AddEntry = ({ visible, onClose, journalId, entry }) => {
     const backAction = () => {
       if (visible && hasUnsavedChanges) {
         showUnsavedChangesAlert();
-        return true; 
+        return true;
       }
       return false;
     };
 
-    const backHandler = BackHandler.addEventListener(
-      'hardwareBackPress',
-      backAction
-    );
-
+    const backHandler = BackHandler.addEventListener('hardwareBackPress', backAction);
     return () => backHandler.remove();
   }, [visible, hasUnsavedChanges]);
 
   useEffect(() => {
     if (!visible || !hasUnsavedChanges) return;
-    
     const interval = setInterval(() => {
       saveDraft();
     }, 30000);
-    
     return () => clearInterval(interval);
   }, [visible, hasUnsavedChanges, description, locationName, locationId, entryImages, displayImagesInRecommendation]);
 
@@ -170,8 +183,7 @@ const AddEntry = ({ visible, onClose, journalId, entry }) => {
 
   const saveDraft = useCallback(() => {
     if (!description && !locationName && entryImages.length === 0) return;
-    if (entry) return; 
-    
+    if (entry) return;
     const draftData = {
       description,
       locationName,
@@ -181,11 +193,9 @@ const AddEntry = ({ visible, onClose, journalId, entry }) => {
       displayImagesInRecommendation,
       dateTime: dateTime.toISOString()
     };
-    
     try {
       AsyncStorage.setItem(`draft_${journalId}`, JSON.stringify(draftData));
       setDraftSaved(true);
-      
       setTimeout(() => {
         setDraftSaved(false);
       }, 2000);
@@ -207,7 +217,6 @@ const AddEntry = ({ visible, onClose, journalId, entry }) => {
         setDisplayImagesInRecommendation(parsed.displayImagesInRecommendation !== false);
         setDateTime(new Date(parsed.dateTime || Date.now()));
         setHasDraft(false);
-        
         if (parsed.entryImages && parsed.entryImages.length > 0) {
           setImageOptionsVisible(true);
         }
@@ -242,10 +251,9 @@ const AddEntry = ({ visible, onClose, journalId, entry }) => {
     setTooltipText(text);
     setTooltipPosition(position);
     setTooltipVisible(true);
-    
     setTimeout(() => {
       setTooltipVisible(false);
-    }, 3000);
+    }, 5000);
   };
 
   const showUnsavedChangesAlert = () => {
@@ -264,10 +272,7 @@ const AddEntry = ({ visible, onClose, journalId, entry }) => {
             onClose();
           },
         },
-        { 
-          text: 'Cancel', 
-          style: 'cancel' 
-        },
+        { text: 'Cancel', style: 'cancel' },
         {
           text: 'Save & Exit',
           style: 'default',
@@ -293,87 +298,68 @@ const AddEntry = ({ visible, onClose, journalId, entry }) => {
   };
 
   const handleSave = async () => {
-    try {
-      if (!description.trim()) {
-        showTooltip('Description cannot be empty', 'top');
-        return;
-      }
+    if (!description.trim()) {
+      Alert.alert("Error", "Description cannot be empty");
+      return;
+    }
+    
+    const localDateTime = new Date(dateTime);
+    const formattedDate = localDateTime.toISOString().slice(0, 19).replace('T', ' ');
+    
+    console.log('Original date:', dateTime);
+    console.log('Formatted date for storage:', formattedDate);
+    
+    const entryData = {
+      journal_id: journalId,
+      entry_description: description,
+      entry_datetime: formattedDate,
+      entry_location: location ? JSON.stringify(location) : null,
+      entry_location_name: locationName || '',
+      location_id: locationId,
+      entry_images: entryImages.length > 0 ? entryImages : [],
+      display_images_in_recommendation: displayImagesInRecommendation,
+    };
   
-      const entryData = {
-        journal_id: journalId,
-        entry_description: description,
-        entry_datetime: dateTime.toISOString().slice(0,19).replace("T"," "),
-        entry_location: location ? JSON.stringify(location) : null,
-        entry_location_name: locationName || '',
-        location_id: locationId,
-        entry_images: entryImages.length > 0 ? entryImages : [],
-        display_images_in_recommendation: displayImagesInRecommendation,
-      };
-      
+    try {
       if (entry) {
         await updateEntry(entry.entry_id, entryData);
-        showTooltip('Entry updated successfully');
+        Alert.alert("Success", "Entry updated successfully");
       } else {
-        await createEntry(entryData);
-        showTooltip('Entry created successfully');
-        discardDraft();
+        if (!isOnline) {
+          await createEntry(entryData);
+          Alert.alert("Success", "Entry saved offline. It will sync and analyze sentiment when you're online.");
+        } else {
+          await createEntry(entryData);
+          Alert.alert("Success", "Entry created successfully");
+          discardDraft();
+        }
       }
-  
       setHasUnsavedChanges(false);
       onClose();
       resetFields();
     } catch (error) {
       console.error('🚨 Error saving entry:', error);
-      showTooltip('Error saving entry. Please try again.');
+      Alert.alert("Error", "Error saving entry. Please try again.");
     }
   };
 
   const pickImages = async () => {
-    const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
-    if (status !== 'granted') {
-      showTooltip('Camera roll permissions are required to select images');
-      return;
-    }
-
     try {
+      // Launch image picker directly (assuming permissions are already granted)
       const result = await ImagePicker.launchImageLibraryAsync({
         mediaTypes: ImagePicker.MediaTypeOptions.Images,
         allowsMultipleSelection: true,
         selectionLimit: 5,
-        aspect: [4, 3],
-        quality: 1,
+        quality: 0.5,
       });
-
-      if (!result.canceled) {
-        const unsupportedFormats = result.assets.filter(asset => 
-          !asset.uri.toLowerCase().endsWith('.jpg') && 
-          !asset.uri.toLowerCase().endsWith('.png') && 
-          !asset.uri.toLowerCase().endsWith('.jpeg')
-        );
-        
-        if (unsupportedFormats.length > 0) {
-          showTooltip('Only JPG and PNG formats are supported');
-          return;
-        }
-        
-        if (entryImages.length + result.assets.length > 5) {
-          showTooltip('Maximum 5 images allowed');
-          const remaining = 5 - entryImages.length;
-          const newImages = result.assets.slice(0, remaining).map(asset => asset.uri);
-          setEntryImages(prevImages => [...prevImages, ...newImages]);
-          return;
-        }
-        
+      
+      if (!result.canceled && result.assets && result.assets.length > 0) {
         const newImages = result.assets.map(asset => asset.uri);
         setEntryImages(prevImages => [...prevImages, ...newImages]);
-        
-        if (entryImages.length === 0 && newImages.length > 0) {
-          setImageOptionsVisible(true);
-        }
       }
     } catch (error) {
       console.error('Error picking images:', error);
-      showTooltip('Error selecting images');
+      Alert.alert('Error', `Could not select images: ${error.message}`);
     }
   };
 
@@ -420,7 +406,6 @@ const AddEntry = ({ visible, onClose, journalId, entry }) => {
         </View>
       );
     }
-
     if (error) {
       return (
         <View style={styles.errorContainer}>
@@ -431,7 +416,6 @@ const AddEntry = ({ visible, onClose, journalId, entry }) => {
         </View>
       );
     }
-
     if (filteredLocations.length === 0) {
       return (
         <View style={styles.emptyContainer}>
@@ -439,7 +423,6 @@ const AddEntry = ({ visible, onClose, journalId, entry }) => {
         </View>
       );
     }
-
     return (
       <FlatList
         data={filteredLocations}
@@ -474,15 +457,12 @@ const AddEntry = ({ visible, onClose, journalId, entry }) => {
             </View>
           </View>
         )}
-
         {draftSaved && (
           <View style={styles.draftSavedIndicator}>
             <Text style={styles.draftSavedText}>Draft saved</Text>
           </View>
         )}
-
         <Text style={styles.title}>{entry ? 'Edit Entry' : 'New Entry'}</Text>
-
         <TextInput
           style={styles.input}
           placeholder="Describe your moment..."
@@ -491,23 +471,21 @@ const AddEntry = ({ visible, onClose, journalId, entry }) => {
           multiline
           textAlignVertical="top"
         />
-
         <TouchableOpacity style={styles.addButton} onPress={() => setLocationModalVisible(true)}>
           <Ionicons name="location-sharp" size={20} color="#13547D" />
           <Text style={styles.addButtonText}>
             {locationName ? locationName : 'Add Location'} 
           </Text>
         </TouchableOpacity>
-
+        {/* Disable Add Images button when offline */}
         <TouchableOpacity 
-          style={styles.addButton} 
-          onPress={pickImages}
+          style={[styles.addButton, !isOnline && styles.disabledButton]} 
+          onPress={isOnline ? pickImages : () => Alert.alert('Offline Mode', 'Adding images is disabled while offline')}
+          disabled={!isOnline}
         >
           <Ionicons name="images" size={20} color="#13547D" />
           <Text style={styles.addButtonText}>
-            {entryImages.length > 0 
-              ? `Images (${entryImages.length}/5)` 
-              : 'Add Images'}
+            {entryImages.length > 0 ? `Images (${entryImages.length}/5)` : 'Add Images'}
           </Text>
           {entryImages.length > 0 && (
             <TouchableOpacity 
@@ -518,7 +496,6 @@ const AddEntry = ({ visible, onClose, journalId, entry }) => {
             </TouchableOpacity>
           )}
         </TouchableOpacity>
-
         {imageOptionsVisible && entryImages.length > 0 && (
           <View style={styles.imageOptionsContainer}>
             <Text style={styles.imageOptionsTitle}>Image Privacy Settings</Text>
@@ -538,7 +515,6 @@ const AddEntry = ({ visible, onClose, journalId, entry }) => {
             </Text>
           </View>
         )}
-
         {entryImages.length > 0 && (
           <ScrollView horizontal style={styles.imagePreviewScroll}>
             {entryImages.map((image, index) => (
@@ -559,7 +535,6 @@ const AddEntry = ({ visible, onClose, journalId, entry }) => {
             ))}
           </ScrollView>
         )}
-
         <View style={styles.buttonContainer}>
           <TouchableOpacity
             style={[styles.button, styles.cancelButton]}
@@ -571,18 +546,15 @@ const AddEntry = ({ visible, onClose, journalId, entry }) => {
             <Text style={styles.saveButtonText}>{entry ? 'Update' : 'Save'}</Text>
           </TouchableOpacity>
         </View>
-
         <Tooltip
           visible={tooltipVisible}
           text={tooltipText}
           position={tooltipPosition}
           onHide={() => setTooltipVisible(false)}
         />
-
         <Modal visible={locationModalVisible} animationType="slide" onRequestClose={() => setLocationModalVisible(false)}>
           <View style={styles.locationModal}>
             <Text style={styles.locationTitle}>Select a Location</Text>
-
             <TextInput
               style={styles.searchInput}
               placeholder="Search locations..."
@@ -590,9 +562,7 @@ const AddEntry = ({ visible, onClose, journalId, entry }) => {
               onChangeText={setSearchQuery}
               autoCapitalize="none"
             />
-
             {renderLocationList()}
-
             <TouchableOpacity 
               style={styles.closeModalButton}
               onPress={() => {
@@ -646,6 +616,9 @@ const styles = StyleSheet.create({
     fontFamily: 'Poppins_400Regular',
     color: '#333',
     flex: 1,
+  },
+  disabledButton: {
+    opacity: 0.5,
   },
   imageSettingsButton: {
     padding: 8,

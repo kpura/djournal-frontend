@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { View, StyleSheet, TouchableOpacity, FlatList, Text, RefreshControl, Alert, Modal } from 'react-native';
+import { View, StyleSheet, TouchableOpacity, FlatList, Text, RefreshControl, Alert, Modal, StatusBar, SafeAreaView, Platform } from 'react-native';
 import FontAwesome5 from 'react-native-vector-icons/FontAwesome5';
 import { useNavigation, useFocusEffect } from '@react-navigation/native';
 import AddJournal from '../components/AddJournal';
@@ -177,177 +177,188 @@ const MyJournal = () => {
   if (!fontsLoaded) return null;
 
   return (
-    <View style={styles.container}>
-      <View style={styles.header}>
-        <View style={styles.headerRow}>
-          <Text style={styles.title}>Journals</Text>
+    <SafeAreaView style={styles.safeArea}>
+      <StatusBar backgroundColor="#f8f8f8" barStyle="dark-content" />
+      <View style={styles.container}>
+        <View style={styles.header}>
+          <View style={styles.headerRow}>
+            <Text style={styles.title}>Journals</Text>
+          </View>
         </View>
-      </View>
 
-      {(!journals || journals.length === 0) ? (
-        <TouchableOpacity style={styles.fabCenter} onPress={openModal}>
-          <FontAwesome5 name="plus" size={25} color="#fff" />
-        </TouchableOpacity>
-      ) : (
-        <>
-          <FlatList
-            data={journals}
-            keyExtractor={(item) => item.journal_id.toString()}
-            renderItem={({ item, index }) => (
-              <Swipeable
-                ref={(ref) => (swipeableRefs.current[index] = ref)}
-                renderRightActions={() => renderRightActions(item, index)}
-                onSwipeableWillOpen={() => handleSwipeOpen(index)}
-              >
-                <View style={styles.journalItem}>
-                  <TouchableOpacity
-                    style={styles.journalContent}
-                    onPress={() =>
-                      navigation.navigate('MyEntry', { 
-                        journalId: item.journal_id,
-                        journalTitle: item.journal_title 
-                      })
-                    }
-                  >
-                    <View style={styles.journalTextContainer}>
-                      <FontAwesome5
-                        name="book"
-                        size={30}
-                        color="#fff"
-                        style={styles.bookIcon}
-                      />
-                      <View>
-                        <Text 
-                          style={styles.journalTextOverlay}
-                          numberOfLines={2}
-                          ellipsizeMode="tail"
-                        >
-                          {item.journal_title}
-                        </Text>
-                        <Text style={styles.journalDateOverlay}>
-                          {formatDate(item.journal_date)}
-                        </Text>
-                      </View>
-                    </View>
-                  </TouchableOpacity>
-                </View>
-              </Swipeable>
-            )}
-            refreshControl={
-              <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
-            }
-            contentContainerStyle={{ paddingBottom: 100 }}
-            ListEmptyComponent={() => (
-              <View style={styles.emptyContainer}>
-                <Text style={styles.emptyText}>No journals yet</Text>
-                <Text style={styles.emptySubtext}>Tap '+' to create your first journal</Text>
-              </View>
-            )}
-            ListFooterComponent={() => (
-              <Text style={styles.swipeInstructionText}>
-                Swipe left to edit or delete journal
-              </Text>
-            )}
-          />
-
-          <TouchableOpacity style={styles.fabRight} onPress={openModal}>
+        {(!journals || journals.length === 0) ? (
+          <TouchableOpacity style={styles.fabCenter} onPress={openModal}>
             <FontAwesome5 name="plus" size={25} color="#fff" />
           </TouchableOpacity>
-        </>
-      )}
-  
-      <AddJournal
-        visible={isModalVisible}
-        onClose={handleJournalSave}
-        journal={journalToEdit}
-      />
+        ) : (
+          <>
+            <FlatList
+              data={journals}
+              keyExtractor={(item) => item.journal_id.toString()}
+              renderItem={({ item, index }) => (
+                <Swipeable
+                  ref={(ref) => (swipeableRefs.current[index] = ref)}
+                  renderRightActions={() => renderRightActions(item, index)}
+                  onSwipeableWillOpen={() => handleSwipeOpen(index)}
+                >
+                  <View style={styles.journalItem}>
+                    <TouchableOpacity
+                      style={styles.journalContent}
+                      onPress={() =>
+                        navigation.navigate('MyEntry', { 
+                          journalId: item.journal_id,
+                          journalTitle: item.journal_title 
+                        })
+                      }
+                    >
+                      <View style={styles.journalTextContainer}>
+                        <FontAwesome5
+                          name="book"
+                          size={30}
+                          color="#fff"
+                          style={styles.bookIcon}
+                        />
+                        <View>
+                          <Text 
+                            style={styles.journalTextOverlay}
+                            numberOfLines={2}
+                            ellipsizeMode="tail"
+                          >
+                            {item.journal_title}
+                          </Text>
+                          <Text style={styles.journalDateOverlay}>
+                            {formatDate(item.journal_date)}
+                          </Text>
+                        </View>
+                      </View>
+                    </TouchableOpacity>
+                  </View>
+                </Swipeable>
+              )}
+              refreshControl={
+                <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
+              }
+              contentContainerStyle={{ paddingBottom: 100 }}
+              ListEmptyComponent={() => (
+                <View style={styles.emptyContainer}>
+                  <Text style={styles.emptyText}>No journals yet</Text>
+                  <Text style={styles.emptySubtext}>Tap '+' to create your first journal</Text>
+                </View>
+              )}
+              ListFooterComponent={() => (
+                <Text style={styles.swipeInstructionText}>
+                  Swipe left to edit or delete journal
+                </Text>
+              )}
+            />
 
-      {/* Delete Confirmation Modal */}
-      <Modal
-        transparent={true}
-        visible={deleteConfirmVisible}
-        animationType="fade"
-        onRequestClose={() => setDeleteConfirmVisible(false)}
-      >
-        <View style={styles.modalOverlay}>
-          <View style={styles.confirmationModal}>
-            <Text style={styles.confirmDelete}>Delete Journal</Text>
-            <Text style={styles.confirmText}>
-              This journal and all its entries will be permanently deleted and cannot be recovered.
-            </Text>
-            <View style={styles.confirmButtonContainer}>
-              <TouchableOpacity
-                style={[styles.confirmButton, styles.cancelButton]}
-                onPress={() => {
-                  setDeleteConfirmVisible(false);
-                  swipeableRefs.current[selectedIndex]?.close();
-                }}
-              >
-                <Text style={styles.cancelButtonText}>Cancel</Text>
-              </TouchableOpacity>
-              <TouchableOpacity
-                style={[styles.confirmButton, styles.deleteConfirmButton]}
-                onPress={handleDelete}
-              >
-                <Text style={styles.deleteButtonText}>Delete</Text>
-              </TouchableOpacity>
+            <TouchableOpacity style={styles.fabRight} onPress={openModal}>
+              <FontAwesome5 name="plus" size={25} color="#fff" />
+            </TouchableOpacity>
+          </>
+        )}
+    
+        <AddJournal
+          visible={isModalVisible}
+          onClose={handleJournalSave}
+          journal={journalToEdit}
+        />
+
+        {/* Delete Confirmation Modal */}
+        <Modal
+          transparent={true}
+          visible={deleteConfirmVisible}
+          animationType="fade"
+          onRequestClose={() => setDeleteConfirmVisible(false)}
+        >
+          <View style={styles.modalOverlay}>
+            <View style={styles.confirmationModal}>
+              <Text style={styles.confirmDelete}>Delete Journal</Text>
+              <Text style={styles.confirmText}>
+                This journal and all its entries will be permanently deleted and cannot be recovered.
+              </Text>
+              <View style={styles.confirmButtonContainer}>
+                <TouchableOpacity
+                  style={[styles.confirmButton, styles.cancelButton]}
+                  onPress={() => {
+                    setDeleteConfirmVisible(false);
+                    swipeableRefs.current[selectedIndex]?.close();
+                  }}
+                >
+                  <Text style={styles.cancelButtonText}>Cancel</Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={[styles.confirmButton, styles.deleteConfirmButton]}
+                  onPress={handleDelete}
+                >
+                  <Text style={styles.deleteButtonText}>Delete</Text>
+                </TouchableOpacity>
+              </View>
             </View>
           </View>
-        </View>
-      </Modal>
+        </Modal>
 
-      {/* Edit Confirmation Modal */}
-      <Modal
-        transparent={true}
-        visible={editConfirmVisible}
-        animationType="fade"
-        onRequestClose={() => setEditConfirmVisible(false)}
-      >
-        <View style={styles.modalOverlay}>
-          <View style={styles.confirmationModal}>
-            <Text style={styles.confirmTitle}>Edit Journal</Text>
-            <Text style={styles.confirmText}>
-              Do you want to edit "{selectedJournal?.journal_title}"?
-            </Text>
-            <View style={styles.confirmButtonContainer}>
-              <TouchableOpacity
-                style={[styles.confirmButton, styles.cancelButton]}
-                onPress={() => {
-                  setEditConfirmVisible(false);
-                  swipeableRefs.current[selectedIndex]?.close();
-                }}
-              >
-                <Text style={styles.cancelButtonText}>Cancel</Text>
-              </TouchableOpacity>
-              <TouchableOpacity
-                style={[styles.confirmButton, styles.editConfirmButton]}
-                onPress={handleUpdate}
-              >
-                <Text style={styles.editButtonText}>Edit</Text>
-              </TouchableOpacity>
+        {/* Edit Confirmation Modal */}
+        <Modal
+          transparent={true}
+          visible={editConfirmVisible}
+          animationType="fade"
+          onRequestClose={() => setEditConfirmVisible(false)}
+        >
+          <View style={styles.modalOverlay}>
+            <View style={styles.confirmationModal}>
+              <Text style={styles.confirmTitle}>Edit Journal</Text>
+              <Text style={styles.confirmText}>
+                Do you want to edit "{selectedJournal?.journal_title}"?
+              </Text>
+              <View style={styles.confirmButtonContainer}>
+                <TouchableOpacity
+                  style={[styles.confirmButton, styles.cancelButton]}
+                  onPress={() => {
+                    setEditConfirmVisible(false);
+                    swipeableRefs.current[selectedIndex]?.close();
+                  }}
+                >
+                  <Text style={styles.cancelButtonText}>Cancel</Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={[styles.confirmButton, styles.editConfirmButton]}
+                  onPress={handleUpdate}
+                >
+                  <Text style={styles.editButtonText}>Edit</Text>
+                </TouchableOpacity>
+              </View>
             </View>
           </View>
-        </View>
-      </Modal>
+        </Modal>
 
-      {showUndoMessage && (
-        <View style={styles.undoContainer}>
-          <Text style={styles.undoText}>Journal deleted.</Text>
-          <TouchableOpacity onPress={handleUndo} style={styles.undoButton}>
-            <Text style={styles.undoButtonText}>Undo</Text>
-          </TouchableOpacity>
-        </View>
-      )}
-    </View>
+        {showUndoMessage && (
+          <View style={styles.undoContainer}>
+            <Text style={styles.undoText}>Journal deleted.</Text>
+            <TouchableOpacity onPress={handleUndo} style={styles.undoButton}>
+              <Text style={styles.undoButtonText}>Undo</Text>
+            </TouchableOpacity>
+          </View>
+        )}
+      </View>
+    </SafeAreaView>
   );
 };
 
 const styles = StyleSheet.create({
+  safeArea: {
+    flex: 1,
+    backgroundColor: '#f8f8f8',
+    paddingTop: Platform.OS === 'android' ? 0 : 0,
+  },
   container: {
     flex: 1,
     backgroundColor: '#f8f8f8',
     padding: 15,
-    paddingTop: 50,
+    paddingTop: Platform.OS === 'android' ? StatusBar.currentHeight || 0 : 0,
+  },
+  header: {
+    marginBottom: 10,
   },
   headerRow: {
     flexDirection: 'row',
@@ -369,6 +380,23 @@ const styles = StyleSheet.create({
     marginBottom: 5,
     color: '#13547D',
     left: 5,
+  },
+  emptyContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginTop: 100,
+  },
+  emptyText: {
+    fontFamily: 'Poppins_600SemiBold',
+    fontSize: 18,
+    color: '#13547D',
+    marginBottom: 8,
+  },
+  emptySubtext: {
+    fontFamily: 'Poppins_400Regular',
+    fontSize: 14,
+    color: '#666',
   },
   fabCenter: {
     position: 'absolute',

@@ -1,53 +1,86 @@
-import React from 'react';
-import { View, Text, StyleSheet, Image, TouchableOpacity, ScrollView } from 'react-native';
-import { useNavigation } from '@react-navigation/native';
+import React, { useState } from 'react'; 
+import { View, Text, StyleSheet, Image, TouchableOpacity, ActivityIndicator } from 'react-native'; 
+import { useNavigation } from '@react-navigation/native'; 
 
-const Recommendation = ({ data }) => {
-  const navigation = useNavigation();
-
-  const userImages = Array.isArray(data.user_submitted_images) ? data.user_submitted_images : [];
-
-  return (
-    <TouchableOpacity
-      style={styles.card}
-      onPress={() => navigation.navigate('PlaceDetail', {
-        location_name: data.location_name,
-        location_place: data.location_place,
-        location_description: data.location_description,
-        overall_positive: data.overall_positive,
-        overall_negative: data.overall_negative,
-        overall_neutral: data.overall_neutral,
-        location_images: data.location_images,
-        user_submitted_images: userImages,
-      })}
-    >
-      {data.location_images ? (
-        <Image
-          source={{ 
-            uri: data.location_images.startsWith('/') 
-              ? `http://192.168.1.3:3000${data.location_images}` 
-              : `http://192.168.1.3:3000/uploads/${data.location_images}` 
-          }}
-          style={styles.image}
-          resizeMode="cover"
-        />
-      ) : (
-        <View style={[styles.image, styles.imagePlaceholder]}>
-          <Text style={styles.placeholderText}>No image</Text>
+const Recommendation = ({ data }) => { 
+  const navigation = useNavigation(); 
+  const [imageLoading, setImageLoading] = useState(true);
+  const [imageError, setImageError] = useState(false);
+ 
+  const userImages = Array.isArray(data.user_submitted_images) ? data.user_submitted_images : [];   
+  const getImageUrl = () => {
+    if (!data.location_images) return null;
+    
+    if (data.location_images.startsWith('https')) {
+      return data.location_images;
+    }
+    
+    return `https://api.djournalmood.com${data.location_images}`;
+  };
+  
+  const imageUrl = getImageUrl();
+  console.log('Constructed URL:', imageUrl);
+ 
+  return ( 
+    <TouchableOpacity 
+      style={styles.card} 
+      onPress={() => navigation.navigate('PlaceDetail', { 
+        location_name: data.location_name, 
+        location_place: data.location_place, 
+        location_description: data.location_description, 
+        overall_positive: data.overall_positive, 
+        overall_negative: data.overall_negative, 
+        overall_neutral: data.overall_neutral, 
+        location_images: data.location_images, 
+        user_submitted_images: userImages, 
+      })} 
+    > 
+      {data.location_images ? ( 
+        <View style={styles.imageContainer}>
+          {imageLoading && (
+            <View style={styles.loaderContainer}>
+              <ActivityIndicator size="small" color="#13547D" />
+            </View>
+          )}
+          {imageError ? (
+            <View style={[styles.image, styles.imagePlaceholder]}>
+              <Text style={styles.placeholderText}>Image Error</Text>
+            </View>
+          ) : (
+            <Image 
+              source={{ uri: imageUrl }} 
+              style={styles.image} 
+              resizeMode="cover"
+              onLoadStart={() => {
+                setImageLoading(true);
+                setImageError(false);
+              }}
+              onLoadEnd={() => setImageLoading(false)}
+              onError={(e) => {
+                console.log('Image error:', e.nativeEvent.error);
+                setImageLoading(false);
+                setImageError(true);
+              }}
+            /> 
+          )}
         </View>
-      )}
-
-      <View style={styles.textContainer}>
-        <Text style={styles.title} numberOfLines={2} ellipsizeMode="tail">
-          {data.location_name}
-        </Text>
-        <Text style={styles.subtitle} numberOfLines={2} ellipsizeMode="tail">
-          {data.location_place}
-        </Text>
-      </View>
-    </TouchableOpacity>
-  );
-};
+      ) : ( 
+        <View style={[styles.image, styles.imagePlaceholder]}> 
+          <Text style={styles.placeholderText}>No image</Text> 
+        </View> 
+      )} 
+ 
+      <View style={styles.textContainer}> 
+        <Text style={styles.title} numberOfLines={2} ellipsizeMode="tail"> 
+          {data.location_name} 
+        </Text> 
+        <Text style={styles.subtitle} numberOfLines={2} ellipsizeMode="tail"> 
+          {data.location_place} 
+        </Text> 
+      </View> 
+    </TouchableOpacity> 
+  ); 
+}; 
 
 const styles = StyleSheet.create({
   card: {
@@ -63,11 +96,17 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginHorizontal: 5,
   },
-  image: {
+  imageContainer: {
     width: 130,
     height: 100,
     borderRadius: 10,
     marginRight: 15,
+    overflow: 'hidden',
+  },
+  image: {
+    width: 130,
+    height: 100,
+    borderRadius: 10,
   },
   imagePlaceholder: {
     backgroundColor: '#f0f0f0',
@@ -96,6 +135,17 @@ const styles = StyleSheet.create({
     color: '#13547D',
     marginVertical: 4,
   },
+  loaderContainer: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    justifyContent: 'center',
+    alignItems: 'center',
+    zIndex: 1,
+    backgroundColor: 'rgba(255,255,255,0.5)',
+  }
 });
 
 export default Recommendation;

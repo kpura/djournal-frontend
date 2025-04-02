@@ -1,11 +1,14 @@
 import React, { useEffect, useState } from 'react';
-import { View, Text, FlatList, StyleSheet, TouchableOpacity, RefreshControl, Alert, TextInput, TouchableWithoutFeedback, Keyboard } from 'react-native';
+import { 
+  View, Text, FlatList, StyleSheet, TouchableOpacity, RefreshControl, Alert, TextInput, TouchableWithoutFeedback, Keyboard, SafeAreaView, StatusBar, Platform 
+} from 'react-native';
 import { useRoute, useNavigation } from '@react-navigation/native';
 import AddEntry from '../components/AddEntry';
 import FontAwesome5 from 'react-native-vector-icons/FontAwesome5';
 import { useFonts, Poppins_400Regular, Poppins_600SemiBold } from '@expo-google-fonts/poppins';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import { fetchEntries as apiFetchEntries, deleteEntry } from '../api';
+import NetInfo from '@react-native-community/netinfo';
 
 const MyEntry = () => {
   const route = useRoute();
@@ -24,11 +27,20 @@ const MyEntry = () => {
   const [deletedEntry, setDeletedEntry] = useState(null);
   const [showUndoMessage, setShowUndoMessage] = useState(false);
   const [undoTimer, setUndoTimer] = useState(null);
+  const [isOnline, setIsOnline] = useState(true); // New state for network connectivity
 
   const [fontsLoaded] = useFonts({
     Poppins_400Regular,
     Poppins_600SemiBold,
   });
+
+  // Monitor network connectivity
+  useEffect(() => {
+    const unsubscribe = NetInfo.addEventListener(state => {
+      setIsOnline(state.isConnected && state.isInternetReachable);
+    });
+    return () => unsubscribe();
+  }, []);
 
   const closeDropdown = () => {
     setOpenedEntryId(null);
@@ -120,6 +132,10 @@ const MyEntry = () => {
 
   const handleUpdate = (entry) => {
     setSelectedEntryId(null);
+    if (!isOnline) {
+      Alert.alert('Offline Mode', 'Editing entries is disabled while offline.');
+      return;
+    }
     openModal();
     setEntryToEdit(entry);
   };
@@ -130,11 +146,15 @@ const MyEntry = () => {
       fetchEntries();
     } catch (error) {
       console.error('Error deleting entry:', error.message);
-      alert('Failed to delete entry');
+      Alert.alert('Failed to delete entry');
     }
-  };  
+  };
 
   const handleDelete = (entryId) => {
+    if (!isOnline) {
+      Alert.alert('Offline Mode', 'Deleting entries is disabled while offline.');
+      return;
+    }
     Alert.alert(
       'Delete Entry',
       'Are you sure you want to delete this journal entry?',
@@ -148,25 +168,19 @@ const MyEntry = () => {
           style: 'destructive',
           onPress: () => {
             const entryToDelete = entries.find(entry => entry.entry_id === entryId);
-            
             setDeletedEntry(entryToDelete);
-            
             const updatedEntries = entries.filter(entry => entry.entry_id !== entryId);
             setEntries(updatedEntries);
             setFilteredEntries(updatedEntries);
-            
             setShowUndoMessage(true);
-            
             if (undoTimer) {
               clearTimeout(undoTimer);
             }
-            
             const timer = setTimeout(() => {
               performDelete(entryId);
               setShowUndoMessage(false);
               setDeletedEntry(null);
             }, 2000);
-            
             setUndoTimer(timer);
           },
         },
@@ -179,36 +193,45 @@ const MyEntry = () => {
       if (undoTimer) {
         clearTimeout(undoTimer);
       }
-      
       const restoredEntries = [...entries, deletedEntry];
       setEntries(restoredEntries);
       setFilteredEntries(restoredEntries);
-      
       setShowUndoMessage(false);
       setDeletedEntry(null);
     }
   };
 
+  // EntryOptionsDropdown now disables Edit and Delete when offline
   const EntryOptionsDropdown = ({ entry, onClose }) => {
     return (
       <View style={styles.dropdownContainer}>
         <TouchableOpacity 
-          style={styles.dropdownOption} 
+          style={[styles.dropdownOption, !isOnline && { opacity: 0.5 }]} 
           onPress={() => {
+            if (!isOnline) {
+              Alert.alert('Offline Mode', 'Editing is disabled while offline.');
+              return;
+            }
             handleUpdate(entry);
             onClose();
           }}
+          disabled={!isOnline}
         >
           <FontAwesome5 name="pencil-alt" size={16} color="#4CAF50" />
           <Text style={styles.dropdownOptionText}>Edit</Text>
         </TouchableOpacity>
         
         <TouchableOpacity 
-          style={styles.dropdownOption} 
+          style={[styles.dropdownOption, !isOnline && { opacity: 0.5 }]} 
           onPress={() => {
+            if (!isOnline) {
+              Alert.alert('Offline Mode', 'Deleting is disabled while offline.');
+              return;
+            }
             handleDelete(entry.entry_id);
             onClose();
           }}
+          disabled={!isOnline}
         >
           <FontAwesome5 name="trash-alt" size={16} color="red" />
           <Text style={styles.dropdownOptionText}>Delete</Text>
@@ -280,29 +303,30 @@ const MyEntry = () => {
                 <FontAwesome5 name="ellipsis-h" size={20} color="#666" />
               </TouchableOpacity>
             </View>
-
             {openedEntryId === item.entry_id && (
               <EntryOptionsDropdown
                 entry={item}
                 onClose={closeDropdown}
               />
             )}
-
             {item.entry_location_name && (
               <Text style={styles.entryLocation}> 
                 at {item.entry_location_name}
               </Text>
             )}
           </View>
-
           <Text style={styles.entryDescription}>{truncatedDescription}</Text>
-
           {renderSentiment()}
-
           <View style={styles.entryFooter}>
             <Text style={styles.entryTime}>{formattedTime}</Text>
             <TouchableOpacity
-              onPress={() => navigation.navigate('FullEntryView', { entry: item })}
+              onPress={() => {
+                if (!isOnline) {
+                  Alert.alert('Offline Mode', 'Viewing full entry is disabled while offline.');
+                  return;
+                }
+                navigation.navigate('FullEntryView', { entry: item });
+              }}
               style={styles.readMoreButton}
             >
               <Text style={styles.readMoreText}>View All</Text>
@@ -318,113 +342,112 @@ const MyEntry = () => {
   }
 
   return (
-    <View style={styles.container}>
-      <View style={styles.header}>
-        <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backButton}>
-          <FontAwesome5 name="arrow-left" size={18} color="#333" />
-        </TouchableOpacity>
-
-        <Text style={styles.title} 
-          numberOfLines={2} 
-          ellipsizeMode="tail"
-          >
-          {journalTitle}
-        </Text>
-        <TouchableOpacity style={styles.fab} onPress={openModal}>
-          <FontAwesome5 name="plus" size={20} color="#fff" />
-        </TouchableOpacity>
-      </View>
-
-      <View style={styles.filterContainer}>
-        <View style={styles.searchWrapper}>
-          <FontAwesome5 name="search" size={16} color="#888" style={styles.searchIcon} />
-          <TextInput
-            style={styles.searchInput}
-            placeholder="Search by location"
-            placeholderTextColor="#888"
-            value={searchLocation}
-            onChangeText={setSearchLocation}
-          />
-        </View>
-        <TouchableOpacity
-          style={styles.datePickerButton}
-          onPress={() => setShowDatePicker(true)}
-        >
-          <Text style={styles.datePickerText}>
-            {selectedDate ? selectedDate.toDateString() : 'Date'}
+    <SafeAreaView style={styles.safeArea}>
+      <StatusBar backgroundColor="#f8f8f8" barStyle="dark-content" />
+      <View style={styles.container}>
+        <View style={styles.header}>
+          <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backButton}>
+            <FontAwesome5 name="arrow-left" size={18} color="#333" />
+          </TouchableOpacity>
+          <Text style={styles.title} numberOfLines={2} ellipsizeMode="tail">
+            {journalTitle}
           </Text>
-        </TouchableOpacity>
-        {showDatePicker && (
-          <DateTimePicker
-            value={selectedDate || new Date()}
-            mode="date"
-            display="default"
-            onChange={handleDatePickerChange}
-          />
-        )}
-
-        <TouchableOpacity onPress={clearFilters} style={styles.clearFilterButton}>
-          <FontAwesome5 name="eraser" size={15} color="#fff" />
-        </TouchableOpacity>
-      </View>
-
-      <FlatList
-        data={filteredEntries}
-        keyExtractor={(item) => item.entry_id.toString()}
-        renderItem={renderEntry}
-        contentContainerStyle={styles.flatList}
-        refreshControl={
-          <RefreshControl
-            refreshing={isRefreshing}
-            onRefresh={() => {
-              setIsRefreshing(true);
-              fetchEntries();
-            }}
-          />
-        }
-        ListEmptyComponent={
-          <Text style={styles.emptyText}>No entries found. Tap  '+'  to add an entry.</Text>
-        }
-      />
-
-      {showUndoMessage && (
-        <View style={styles.undoContainer}>
-          <Text style={styles.undoText}>Journal entry deleted.</Text>
-          <TouchableOpacity onPress={handleUndo} style={styles.undoButton}>
-            <Text style={styles.undoButtonText}>Undo</Text>
+          <TouchableOpacity style={styles.fab} onPress={openModal}>
+            <FontAwesome5 name="plus" size={20} color="#fff" />
           </TouchableOpacity>
         </View>
-      )}
-
-      <AddEntry
-        visible={isModalVisible}
-        onClose={handleEntrySave}
-        journalId={journalId}
-        entry={entryToEdit}
-      />
-    </View>
+        <View style={styles.filterContainer}>
+          <View style={styles.searchWrapper}>
+            <FontAwesome5 name="search" size={16} color="#888" style={styles.searchIcon} />
+            <TextInput
+              style={styles.searchInput}
+              placeholder="Search by location"
+              placeholderTextColor="#888"
+              value={searchLocation}
+              onChangeText={setSearchLocation}
+            />
+          </View>
+          <TouchableOpacity
+            style={styles.datePickerButton}
+            onPress={() => setShowDatePicker(true)}
+          >
+            <Text style={styles.datePickerText}>
+              {selectedDate ? selectedDate.toDateString() : 'Date'}
+            </Text>
+          </TouchableOpacity>
+          {showDatePicker && (
+            <DateTimePicker
+              value={selectedDate || new Date()}
+              mode="date"
+              display="default"
+              onChange={handleDatePickerChange}
+            />
+          )}
+          <TouchableOpacity onPress={clearFilters} style={styles.clearFilterButton}>
+            <FontAwesome5 name="eraser" size={15} color="#fff" />
+          </TouchableOpacity>
+        </View>
+        <FlatList
+          data={filteredEntries}
+          keyExtractor={(item) => item.entry_id.toString()}
+          renderItem={renderEntry}
+          contentContainerStyle={styles.flatList}
+          refreshControl={
+            <RefreshControl
+              refreshing={isRefreshing}
+              onRefresh={() => {
+                setIsRefreshing(true);
+                fetchEntries();
+              }}
+            />
+          }
+          ListEmptyComponent={
+            <Text style={styles.emptyText}>No entries found. Tap '+' to add an entry.</Text>
+          }
+        />
+        {showUndoMessage && (
+          <View style={styles.undoContainer}>
+            <Text style={styles.undoText}>Journal entry deleted.</Text>
+            <TouchableOpacity onPress={handleUndo} style={styles.undoButton}>
+              <Text style={styles.undoButtonText}>Undo</Text>
+            </TouchableOpacity>
+          </View>
+        )}
+        <AddEntry
+          visible={isModalVisible}
+          onClose={handleEntrySave}
+          journalId={journalId}
+          entry={entryToEdit}
+        />
+      </View>
+    </SafeAreaView>
   );
 };
 
 const styles = StyleSheet.create({
+  safeArea: {
+    flex: 1,
+    backgroundColor: '#f8f8f8',
+    paddingTop: Platform.OS === 'android' ? StatusBar.currentHeight : 0,
+  },
   container: {
     flex: 1,
     backgroundColor: '#f8f8f8',
-  },
-  flatList: {
-    paddingBottom: 20,
   },
   header: {
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: '#fff',
-    paddingTop: 50,
+    paddingTop: 15,
     paddingHorizontal: 20,
     elevation: 2,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.1,
     shadowRadius: 2,
+  },
+  flatList: {
+    paddingBottom: 20,
   },
   backButton: {
     paddingRight: 20,

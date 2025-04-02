@@ -6,6 +6,7 @@ import FontAwesome5 from 'react-native-vector-icons/FontAwesome5';
 import MaterialCommunityIcons from 'react-native-vector-icons/MaterialCommunityIcons';
 import { useFonts, Poppins_400Regular, Poppins_600SemiBold } from '@expo-google-fonts/poppins';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { SafeAreaView, StatusBar, Platform } from 'react-native';
 
 const { width: screenWidth } = Dimensions.get('window');
 
@@ -113,7 +114,7 @@ const FullEntryView = () => {
         >
           <Image
             source={{ 
-              uri: images[0].startsWith('http') 
+              uri: images[0].startsWith('https') 
                 ? images[0] 
                 : `http://192.168.1.3:3000${images[0]}` 
             }}
@@ -148,7 +149,7 @@ const FullEntryView = () => {
             >
               <Image
                 source={{ 
-                  uri: image.startsWith('http') 
+                  uri: image.startsWith('https') 
                     ? image 
                     : `http://192.168.1.3:3000${image}` 
                 }}
@@ -197,7 +198,7 @@ const FullEntryView = () => {
               <View key={index} style={styles.fullScreenImageContainer}>
                 <Image
                   source={{ 
-                    uri: image.startsWith('http') 
+                    uri: image.startsWith('https') 
                       ? image 
                       : `http://192.168.1.3:3000${image}` 
                   }}
@@ -216,30 +217,71 @@ const FullEntryView = () => {
   };
 
   return (
-    <View style={styles.container}>
-      {selectedBackground ? (
-        <ImageBackground 
-          source={selectedBackground}
-          style={styles.backgroundImage}
-          resizeMode="cover"
-        >
-          <View style={[styles.overlay, { backgroundColor: 'rgba(255, 255, 255, 0.7)' }]}>
+    <SafeAreaView style={styles.safeArea}>
+    <StatusBar backgroundColor="#f8f8f8" barStyle="dark-content" />
+      <View style={styles.container}>
+        {selectedBackground ? (
+          <ImageBackground 
+            source={selectedBackground}
+            style={styles.backgroundImage}
+            resizeMode="cover"
+          >
+            <View style={[styles.overlay, { backgroundColor: 'rgba(255, 255, 255, 0.7)' }]}>
+              <View style={styles.header}>
+                <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backButton}>
+                  <FontAwesome5 name="arrow-left" size={18} color="#000" />
+                </TouchableOpacity>
+    
+                <View style={styles.buttonContainer}>
+                  <TouchableOpacity onPress={() => setBackgroundModalVisible(true)} style={styles.customizeButton}>
+                    <FontAwesome5 name="palette" size={18} color="#000" />
+                  </TouchableOpacity>
+    
+                  <TouchableOpacity onPress={() => setCustomizationModalVisible(true)} style={styles.customizeButton}>
+                    <FontAwesome5 name="font" size={18} color="#000" />
+                  </TouchableOpacity>
+                </View>
+              </View>
+              
+              <ScrollView>
+                <View style={styles.entryDetails}>
+                  {renderImageGrid()}
+                  {ImageViewerModal()}
+                  <Text
+                    style={[
+                      styles.entryDescription,
+                      { 
+                        textAlign: alignment, 
+                        textTransform: textCase, 
+                        fontStyle: fontStyle === 'italic' ? 'italic' : 'normal', 
+                        fontWeight: fontStyle === 'bold' ? 'bold' : 'normal' 
+                      }
+                    ]}
+                  >
+                    {entry.entry_description}
+                  </Text>
+                </View>
+              </ScrollView>
+            </View>
+          </ImageBackground>
+        ) : (
+          <View style={[styles.container, { backgroundColor }]}>
             <View style={styles.header}>
               <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backButton}>
                 <FontAwesome5 name="arrow-left" size={18} color="#000" />
               </TouchableOpacity>
-  
+    
               <View style={styles.buttonContainer}>
                 <TouchableOpacity onPress={() => setBackgroundModalVisible(true)} style={styles.customizeButton}>
                   <FontAwesome5 name="palette" size={18} color="#000" />
                 </TouchableOpacity>
-  
+    
                 <TouchableOpacity onPress={() => setCustomizationModalVisible(true)} style={styles.customizeButton}>
                   <FontAwesome5 name="font" size={18} color="#000" />
                 </TouchableOpacity>
               </View>
             </View>
-            
+    
             <ScrollView>
               <View style={styles.entryDetails}>
                 {renderImageGrid()}
@@ -260,209 +302,176 @@ const FullEntryView = () => {
               </View>
             </ScrollView>
           </View>
-        </ImageBackground>
-      ) : (
-        <View style={[styles.container, { backgroundColor }]}>
-          <View style={styles.header}>
-            <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backButton}>
-              <FontAwesome5 name="arrow-left" size={18} color="#000" />
-            </TouchableOpacity>
-  
-            <View style={styles.buttonContainer}>
-              <TouchableOpacity onPress={() => setBackgroundModalVisible(true)} style={styles.customizeButton}>
-                <FontAwesome5 name="palette" size={18} color="#000" />
-              </TouchableOpacity>
-  
-              <TouchableOpacity onPress={() => setCustomizationModalVisible(true)} style={styles.customizeButton}>
-                <FontAwesome5 name="font" size={18} color="#000" />
-              </TouchableOpacity>
+        )}
+    
+        <Modal
+          animationType="slide"
+          transparent={true}
+          visible={backgroundModalVisible}
+          onRequestClose={() => setBackgroundModalVisible(false)}
+        >
+          <TouchableWithoutFeedback onPress={() => setBackgroundModalVisible(false)}>
+            <View style={styles.modalContainer}>
+              <TouchableWithoutFeedback>
+                <View style={styles.modalContent}>
+                  <Text style={styles.sectionTitle}>Color</Text>
+                  <ScrollView 
+                    horizontal 
+                    showsHorizontalScrollIndicator={false} 
+                    contentContainerStyle={styles.colorScrollContainer}>
+                    {[
+                      '#ffffff', '#FFB3B3', '#D4E9FF', '#D6E6D6', '#FFE4B5',
+                      '#FFC1E3', '#FFD1DC', '#E2C2FF', '#B8E8FC', '#D0FFD6',
+                    ].map((color) => (
+                      <TouchableOpacity
+                        key={color}
+                        onPress={() => saveColor(color)}
+                        style={[styles.colorButton, { backgroundColor: color }]}
+                      >
+                        {backgroundColor === color && (
+                          <View style={styles.checkOverlay}>
+                            <FontAwesome5 name="check" size={16} color="#000" />
+                          </View>
+                        )}
+                      </TouchableOpacity>
+                    ))}
+                  </ScrollView>
+
+                  <Text style={styles.sectionTitle}>Background</Text>
+                  <ScrollView 
+                    horizontal 
+                    showsHorizontalScrollIndicator={false} 
+                    contentContainerStyle={styles.imageScrollContainer}>
+                    {[
+                      require('../../assets/bg_image2.jpg'),
+                      require('../../assets/bg_image3.jpg'),
+                      require('../../assets/bg_image4.jpg'),
+                      require('../../assets/bg_image5.jpg'),
+                      require('../../assets/bg_image6.jpg'),
+                    ].map((image, index) => (
+                      <TouchableOpacity
+                        key={index}
+                        onPress={() => saveImage(image)}
+                        style={styles.imagePreviewContainer}
+                      >
+                        <Image source={image} style={styles.imagePreview} />
+                        {selectedBackground === image && (
+                          <View style={styles.checkOverlayImage}>
+                            <FontAwesome5 name="check" size={20} color="#FFF" />
+                          </View>
+                        )}
+                      </TouchableOpacity>
+                    ))}
+                  </ScrollView>
+                </View>
+              </TouchableWithoutFeedback>
             </View>
-          </View>
-  
-          <ScrollView>
-            <View style={styles.entryDetails}>
-              {renderImageGrid()}
-              {ImageViewerModal()}
-              <Text
-                style={[
-                  styles.entryDescription,
-                  { 
-                    textAlign: alignment, 
-                    textTransform: textCase, 
-                    fontStyle: fontStyle === 'italic' ? 'italic' : 'normal', 
-                    fontWeight: fontStyle === 'bold' ? 'bold' : 'normal' 
-                  }
-                ]}
-              >
-                {entry.entry_description}
-              </Text>
+          </TouchableWithoutFeedback>
+        </Modal>
+    
+        <Modal
+          animationType="slide"
+          transparent={true}
+          visible={customizationModalVisible}
+          onRequestClose={() => setCustomizationModalVisible(false)}
+        >
+          <TouchableWithoutFeedback onPress={() => setCustomizationModalVisible(false)}>
+            <View style={styles.modalContainer}>
+              <TouchableWithoutFeedback>
+                <View style={styles.modalContent}>
+                  <Text style={styles.sectionTitle}>Alignment</Text>
+                  <View style={styles.alignmentContainer}>
+                    {['left', 'center', 'right', 'justify'].map((align) => (
+                      <TouchableOpacity
+                        key={align}
+                        onPress={() => saveAlignment(align)}
+                        style={[
+                          styles.alignmentButton,
+                          align === alignment ? styles.activeButton : null,
+                        ]}
+                      >
+                        <FontAwesome5
+                          name={
+                            align === 'left' ? 'align-left' :
+                            align === 'center' ? 'align-center' :
+                            align === 'right' ? 'align-right' :
+                            'align-justify'
+                          }
+                          size={20}
+                          color={align === alignment ? 'white' : 'black'}
+                        />
+                      </TouchableOpacity>
+                    ))}
+                  </View>
+
+                  <Text style={styles.sectionTitle}>Text Case</Text>
+                  <View style={styles.textCaseContainer}>
+                    {['normal', 'uppercase', 'lowercase'].map((caseOption) => (
+                      <TouchableOpacity
+                        key={caseOption}
+                        onPress={() => saveTextCase(caseOption)}
+                        style={[
+                          styles.textCaseButton,
+                          caseOption === textCase ? styles.activeButton : null,
+                        ]}
+                      >
+                        <MaterialCommunityIcons
+                          name={
+                            caseOption === 'normal' ? 'format-letter-case' :
+                            caseOption === 'uppercase' ? 'format-letter-case-upper' :
+                            'format-letter-case-lower'
+                          }
+                          size={30}
+                          color={caseOption === textCase ? 'white' : 'black'}
+                        />
+                      </TouchableOpacity>
+                    ))}
+                  </View>
+
+                  <Text style={styles.sectionTitle}>Font Style</Text>
+                  <View style={styles.fontStyleContainer}>
+                    {['normal', 'bold', 'italic'].map((styleOption) => (
+                      <TouchableOpacity
+                        key={styleOption}
+                        onPress={() => saveFontStyle(styleOption)}
+                        style={[
+                          styles.fontStyleButton,
+                          styleOption === fontStyle ? styles.activeButton : null,
+                        ]}
+                      >
+                        <FontAwesome5
+                          name={
+                            styleOption === 'normal' ? 'font' :
+                            styleOption === 'bold' ? 'bold' :
+                            'italic'
+                          }
+                          size={20}
+                          color={styleOption === fontStyle ? 'white' : 'black'}
+                        />
+                      </TouchableOpacity>
+                    ))}
+                  </View>
+                </View>
+              </TouchableWithoutFeedback>
             </View>
-          </ScrollView>
-        </View>
-      )}
-  
-      <Modal
-        animationType="slide"
-        transparent={true}
-        visible={backgroundModalVisible}
-        onRequestClose={() => setBackgroundModalVisible(false)}
-      >
-        <TouchableWithoutFeedback onPress={() => setBackgroundModalVisible(false)}>
-          <View style={styles.modalContainer}>
-            <TouchableWithoutFeedback>
-              <View style={styles.modalContent}>
-                <Text style={styles.sectionTitle}>Color</Text>
-                <ScrollView 
-                  horizontal 
-                  showsHorizontalScrollIndicator={false} 
-                  contentContainerStyle={styles.colorScrollContainer}>
-                  {[
-                    '#ffffff', '#FFB3B3', '#D4E9FF', '#D6E6D6', '#FFE4B5',
-                    '#FFC1E3', '#FFD1DC', '#E2C2FF', '#B8E8FC', '#D0FFD6',
-                  ].map((color) => (
-                    <TouchableOpacity
-                      key={color}
-                      onPress={() => saveColor(color)}
-                      style={[styles.colorButton, { backgroundColor: color }]}
-                    >
-                      {backgroundColor === color && (
-                        <View style={styles.checkOverlay}>
-                          <FontAwesome5 name="check" size={16} color="#000" />
-                        </View>
-                      )}
-                    </TouchableOpacity>
-                  ))}
-                </ScrollView>
-
-                <Text style={styles.sectionTitle}>Background</Text>
-                <ScrollView 
-                  horizontal 
-                  showsHorizontalScrollIndicator={false} 
-                  contentContainerStyle={styles.imageScrollContainer}>
-                  {[
-                    require('../../assets/bg_image2.jpg'),
-                    require('../../assets/bg_image3.jpg'),
-                    require('../../assets/bg_image4.jpg'),
-                    require('../../assets/bg_image5.jpg'),
-                    require('../../assets/bg_image6.jpg'),
-                  ].map((image, index) => (
-                    <TouchableOpacity
-                      key={index}
-                      onPress={() => saveImage(image)}
-                      style={styles.imagePreviewContainer}
-                    >
-                      <Image source={image} style={styles.imagePreview} />
-                      {selectedBackground === image && (
-                        <View style={styles.checkOverlayImage}>
-                          <FontAwesome5 name="check" size={20} color="#FFF" />
-                        </View>
-                      )}
-                    </TouchableOpacity>
-                  ))}
-                </ScrollView>
-              </View>
-            </TouchableWithoutFeedback>
-          </View>
-        </TouchableWithoutFeedback>
-      </Modal>
-  
-      <Modal
-        animationType="slide"
-        transparent={true}
-        visible={customizationModalVisible}
-        onRequestClose={() => setCustomizationModalVisible(false)}
-      >
-        <TouchableWithoutFeedback onPress={() => setCustomizationModalVisible(false)}>
-          <View style={styles.modalContainer}>
-            <TouchableWithoutFeedback>
-              <View style={styles.modalContent}>
-                <Text style={styles.sectionTitle}>Alignment</Text>
-                <View style={styles.alignmentContainer}>
-                  {['left', 'center', 'right', 'justify'].map((align) => (
-                    <TouchableOpacity
-                      key={align}
-                      onPress={() => saveAlignment(align)}
-                      style={[
-                        styles.alignmentButton,
-                        align === alignment ? styles.activeButton : null,
-                      ]}
-                    >
-                      <FontAwesome5
-                        name={
-                          align === 'left' ? 'align-left' :
-                          align === 'center' ? 'align-center' :
-                          align === 'right' ? 'align-right' :
-                          'align-justify'
-                        }
-                        size={20}
-                        color={align === alignment ? 'white' : 'black'}
-                      />
-                    </TouchableOpacity>
-                  ))}
-                </View>
-
-                <Text style={styles.sectionTitle}>Text Case</Text>
-                <View style={styles.textCaseContainer}>
-                  {['normal', 'uppercase', 'lowercase'].map((caseOption) => (
-                    <TouchableOpacity
-                      key={caseOption}
-                      onPress={() => saveTextCase(caseOption)}
-                      style={[
-                        styles.textCaseButton,
-                        caseOption === textCase ? styles.activeButton : null,
-                      ]}
-                    >
-                      <MaterialCommunityIcons
-                        name={
-                          caseOption === 'normal' ? 'format-letter-case' :
-                          caseOption === 'uppercase' ? 'format-letter-case-upper' :
-                          'format-letter-case-lower'
-                        }
-                        size={30}
-                        color={caseOption === textCase ? 'white' : 'black'}
-                      />
-                    </TouchableOpacity>
-                  ))}
-                </View>
-
-                <Text style={styles.sectionTitle}>Font Style</Text>
-                <View style={styles.fontStyleContainer}>
-                  {['normal', 'bold', 'italic'].map((styleOption) => (
-                    <TouchableOpacity
-                      key={styleOption}
-                      onPress={() => saveFontStyle(styleOption)}
-                      style={[
-                        styles.fontStyleButton,
-                        styleOption === fontStyle ? styles.activeButton : null,
-                      ]}
-                    >
-                      <FontAwesome5
-                        name={
-                          styleOption === 'normal' ? 'font' :
-                          styleOption === 'bold' ? 'bold' :
-                          'italic'
-                        }
-                        size={20}
-                        color={styleOption === fontStyle ? 'white' : 'black'}
-                      />
-                    </TouchableOpacity>
-                  ))}
-                </View>
-              </View>
-            </TouchableWithoutFeedback>
-          </View>
-        </TouchableWithoutFeedback>
-      </Modal>
-    </View>
+          </TouchableWithoutFeedback>
+        </Modal>
+      </View>
+    </SafeAreaView>
   );
 };
 
 const styles = StyleSheet.create({
+  safeArea: {
+    flex: 1,
+    backgroundColor: '#f8f8f8',
+    paddingTop: Platform.OS === 'android' ? StatusBar.currentHeight : 0,
+  },
   container: {
     flex: 1,
   },
   backgroundImage: {
-    ...StyleSheet.absoluteFillObject, // Full-screen coverage
+    ...StyleSheet.absoluteFillObject,
   },
   sectionTitle: {
     fontFamily: 'Poppins_600SemiBold',
@@ -476,7 +485,7 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     padding: 15,
     zIndex: 1,
-    paddingTop: 60,
+    paddingTop: 15,
     marginBottom: 5,
   },
   backButton: {

@@ -24,7 +24,11 @@
         "newArchEnabled": true
       },
       "package": "com.group10.djournal",
-      "permissions": ["ACCESS_FINE_LOCATION", "ACCESS_COARSE_LOCATION"]
+      "permissions": [
+        "android.permission.READ_MEDIA_IMAGES",
+        "android.permission.ACCESS_FINE_LOCATION", 
+        "android.permission.ACCESS_COARSE_LOCATION" 
+      ]
     },
     "web": {
       "favicon": "./assets/favicon.png"

@@ -5,6 +5,7 @@ import { useNavigation } from '@react-navigation/native';
 import { Svg, Circle } from 'react-native-svg';
 import { fetchUserHistory } from '../api';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { SafeAreaView, StatusBar, Platform } from 'react-native';
 
 const DataVisualization = () => {
   const navigation = useNavigation();
@@ -404,100 +405,108 @@ const DataVisualization = () => {
   }
 
   return (
-    <View style={styles.container}>
-      <TouchableOpacity style={styles.backButton} onPress={() => navigation.goBack()}>
-        <FontAwesome5 name="arrow-left" size={20} color="#333" />
-      </TouchableOpacity>
+    <SafeAreaView style={styles.safeArea}>
+      <StatusBar backgroundColor="#f8f8f8" barStyle="dark-content" />
+      <View style={styles.container}>
+        <TouchableOpacity style={styles.backButton} onPress={() => navigation.goBack()}>
+          <FontAwesome5 name="arrow-left" size={20} color="#333" />
+        </TouchableOpacity>
 
-      <Text style={styles.header}>Data Visualization</Text>
+        <Text style={styles.header}>Data Visualization</Text>
 
-      <ScrollView 
-        contentContainerStyle={styles.scrollViewContent}
-        refreshControl={
-          <RefreshControl
-            refreshing={refreshing}
-            onRefresh={onRefresh}
-            colors={["#2196F3"]}
-            tintColor="#2196F3"
-          />
-        }
-      >
-        <View style={styles.section}>
-          <View style={styles.sectionHeader}>
-            <MaterialCommunityIcons name="calendar-month" size={20} color="#333" />
-            <Text style={styles.sectionTitle}>Calendar View</Text>
-          </View>
-          <Text style={styles.subtitle}>Journal entries by day</Text>
-          {renderCalendar()}
-          <View style={styles.legendContainer}>
-            <View style={styles.legendItem}>
-              <View style={[styles.legendDot, { backgroundColor: '#4CAF50' }]} />
-              <Text style={styles.legendText}>Joyful</Text>
+        <ScrollView 
+          contentContainerStyle={styles.scrollViewContent}
+          refreshControl={
+            <RefreshControl
+              refreshing={refreshing}
+              onRefresh={onRefresh}
+              colors={["#2196F3"]}
+              tintColor="#2196F3"
+            />
+          }
+        >
+          <View style={styles.section}>
+            <View style={styles.sectionHeader}>
+              <MaterialCommunityIcons name="calendar-month" size={20} color="#333" />
+              <Text style={styles.sectionTitle}>Calendar View</Text>
             </View>
-            <View style={styles.legendItem}>
-              <View style={[styles.legendDot, { backgroundColor: '#F44336' }]} />
-              <Text style={styles.legendText}>Uncertain</Text>
-            </View>
-            <View style={styles.legendItem}>
-              <View style={[styles.legendDot, { backgroundColor: '#64B5F6' }]} />
-              <Text style={styles.legendText}>Content</Text>
-            </View>
-          </View>
-        </View>
-        
-        {/* Mood Chart */}
-        <View style={styles.section}>
-          <View style={styles.sectionHeader}>
-            <FontAwesome5 name="chart-pie" size={20} color="#333" />
-            <Text style={styles.sectionTitle}>Overall Mood</Text>
-          </View>
-          <Text style={styles.subtitle}>Your emotional patterns this month</Text>
-          {renderPieChart()}
-        </View>
-        
-        {/* Entry Statistics */}
-        <View style={styles.section}>
-          <View style={styles.sectionHeader}>
-            <FontAwesome5 name="chart-line" size={20} color="#333" />
-            <Text style={styles.sectionTitle}>Entry Statistics</Text>
-          </View>
-          <View style={styles.statsRow}>
-            <View style={styles.statItem}>
-              <Text style={styles.statNumber}>{entryCounts.length}</Text>
-              <Text style={styles.statLabel}>Days with Entries</Text>
-            </View>
-            <View style={styles.statItem}>
-              <Text style={styles.statNumber}>
-                {historyData && historyData.summary ? historyData.summary.totalEntries : 0}
-              </Text>
-              <Text style={styles.statLabel}>Total Entries</Text>
-            </View>
-            <View style={styles.statItem}>
-              <Text style={styles.statNumber}>
-                {entryCounts.length > 0 
-                  ? ((historyData && historyData.summary ? historyData.summary.totalEntries : 0) / entryCounts.length).toFixed(1) 
-                  : '0'}
-              </Text>
-              <Text style={styles.statLabel}>Avg Per Day</Text>
+            <Text style={styles.subtitle}>Journal entries by day</Text>
+            {renderCalendar()}
+            <View style={styles.legendContainer}>
+              <View style={styles.legendItem}>
+                <View style={[styles.legendDot, { backgroundColor: '#4CAF50' }]} />
+                <Text style={styles.legendText}>Joyful</Text>
+              </View>
+              <View style={styles.legendItem}>
+                <View style={[styles.legendDot, { backgroundColor: '#F44336' }]} />
+                <Text style={styles.legendText}>Uncertain</Text>
+              </View>
+              <View style={styles.legendItem}>
+                <View style={[styles.legendDot, { backgroundColor: '#64B5F6' }]} />
+                <Text style={styles.legendText}>Content</Text>
+              </View>
             </View>
           </View>
-        </View>
-        
-        {/* Additional Insights */}
-        <View style={styles.section}>
-          <View style={styles.sectionHeader}>
-            <MaterialCommunityIcons name="lightbulb-on-outline" size={20} color="#333" />
-            <Text style={styles.sectionTitle}>Insights</Text>
+          
+          {/* Mood Chart */}
+          <View style={styles.section}>
+            <View style={styles.sectionHeader}>
+              <FontAwesome5 name="chart-pie" size={20} color="#333" />
+              <Text style={styles.sectionTitle}>Overall Mood</Text>
+            </View>
+            <Text style={styles.subtitle}>Your emotional patterns this month</Text>
+            {renderPieChart()}
           </View>
-          <Text style={styles.subtitle}>Trends and patterns in your journal</Text>
-          {generateInsights()}
-        </View>
-      </ScrollView>
-    </View>
+          
+          {/* Entry Statistics */}
+          <View style={styles.section}>
+            <View style={styles.sectionHeader}>
+              <FontAwesome5 name="chart-line" size={20} color="#333" />
+              <Text style={styles.sectionTitle}>Entry Statistics</Text>
+            </View>
+            <View style={styles.statsRow}>
+              <View style={styles.statItem}>
+                <Text style={styles.statNumber}>{entryCounts.length}</Text>
+                <Text style={styles.statLabel}>Days with Entries</Text>
+              </View>
+              <View style={styles.statItem}>
+                <Text style={styles.statNumber}>
+                  {historyData && historyData.summary ? historyData.summary.totalEntries : 0}
+                </Text>
+                <Text style={styles.statLabel}>Total Entries</Text>
+              </View>
+              <View style={styles.statItem}>
+                <Text style={styles.statNumber}>
+                  {entryCounts.length > 0 
+                    ? ((historyData && historyData.summary ? historyData.summary.totalEntries : 0) / entryCounts.length).toFixed(1) 
+                    : '0'}
+                </Text>
+                <Text style={styles.statLabel}>Avg Per Day</Text>
+              </View>
+            </View>
+          </View>
+          
+          {/* Additional Insights */}
+          <View style={styles.section}>
+            <View style={styles.sectionHeader}>
+              <MaterialCommunityIcons name="lightbulb-on-outline" size={20} color="#333" />
+              <Text style={styles.sectionTitle}>Insights</Text>
+            </View>
+            <Text style={styles.subtitle}>Trends and patterns in your journal</Text>
+            {generateInsights()}
+          </View>
+        </ScrollView>
+      </View>
+    </SafeAreaView> 
   );
 };
 
 const styles = StyleSheet.create({
+  safeArea: {
+    flex: 1,
+    backgroundColor: '#f8f8f8',
+    paddingTop: Platform.OS === 'android' ? StatusBar.currentHeight : 0,
+  },
   container: {
     flex: 1,
     backgroundColor: '#F5F5F5',
@@ -506,12 +515,12 @@ const styles = StyleSheet.create({
     position: 'absolute',
     left: 18,
     top: 10,
-    marginTop: 50,
+    marginTop: 8,
   },
   header: {
     fontSize: 20,
     fontFamily: 'Poppins_600SemiBold',
-    marginTop: 57,
+    marginTop: 15,
     marginBottom: 10,
     left: 55,
   },

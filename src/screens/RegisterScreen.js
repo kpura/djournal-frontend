@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { 
-  View, Text, TextInput, TouchableOpacity, StyleSheet, ActivityIndicator, Modal, ScrollView
+  View, Text, TextInput, TouchableOpacity, StyleSheet, ActivityIndicator, 
+  Modal, ScrollView, KeyboardAvoidingView, Platform, StatusBar, SafeAreaView
 } from 'react-native';
 import { registerUser } from '../api';
 import { useFonts, Poppins_400Regular, Poppins_600SemiBold } from '@expo-google-fonts/poppins';
@@ -98,112 +99,142 @@ const RegisterScreen = ({ navigation }) => {
   }
 
   return (
-    <ScrollView style={styles.scrollContainer}>
-      <View style={styles.container}>
-        <Text style={styles.title}>Create Account</Text>
-        <Text style={styles.subtitle}>Sign up to get started</Text>
+    <SafeAreaView style={styles.safeArea}>
+      <StatusBar backgroundColor="#f8f9fa" barStyle="dark-content" />
+      <KeyboardAvoidingView 
+        behavior={Platform.OS === "ios" ? "padding" : "height"}
+        style={styles.keyboardAvoidingView}
+      >
+        <ScrollView 
+          style={styles.scrollContainer}
+          contentContainerStyle={styles.scrollContentContainer}
+          showsVerticalScrollIndicator={false}
+        >
+          <View style={styles.container}>
+            <Text style={styles.title}>Create Account</Text>
+            <Text style={styles.subtitle}>Sign up to get started</Text>
 
-        <View style={styles.form}>
-          <View style={styles.inputContainer}>
-            <Text style={styles.label}>Name</Text>
-            <TextInput
-              style={styles.input}
-              placeholder="Enter your name"
-              value={name}
-              onChangeText={setName}
-            />
-          </View>
+            <View style={styles.form}>
+              <View style={styles.inputContainer}>
+                <Text style={styles.label}>Name</Text>
+                <TextInput
+                  style={styles.input}
+                  placeholder="Enter your name"
+                  value={name}
+                  onChangeText={setName}
+                />
+              </View>
 
-          <View style={styles.inputContainer}>
-            <Text style={styles.label}>Email</Text>
-            <TextInput
-              style={styles.input}
-              placeholder="Enter your email"
-              value={email}
-              onChangeText={setEmail}
-              keyboardType="email-address"
-              autoCapitalize="none"
-            />
-          </View>
+              <View style={styles.inputContainer}>
+                <Text style={styles.label}>Email</Text>
+                <TextInput
+                  style={styles.input}
+                  placeholder="Enter your email"
+                  value={email}
+                  onChangeText={setEmail}
+                  keyboardType="email-address"
+                  autoCapitalize="none"
+                />
+              </View>
 
-          <View style={styles.inputContainer}>
-            <Text style={styles.label}>Password</Text>
-            <View style={styles.passwordContainer}>
-              <TextInput
-                style={styles.passwordInput}
-                placeholder="Create a password"
-                value={password}
-                onChangeText={setPassword}
-                secureTextEntry={!showPassword}
-              />
-              <TouchableOpacity onPress={() => setShowPassword(!showPassword)}>
-                <Ionicons name={showPassword ? 'eye' : 'eye-off'} size={24} color="#6c757d" />
+              <View style={styles.inputContainer}>
+                <Text style={styles.label}>Password</Text>
+                <View style={styles.passwordContainer}>
+                  <TextInput
+                    style={styles.passwordInput}
+                    placeholder="Create a password"
+                    value={password}
+                    onChangeText={setPassword}
+                    secureTextEntry={!showPassword}
+                  />
+                  <TouchableOpacity onPress={() => setShowPassword(!showPassword)}>
+                    <Ionicons name={showPassword ? 'eye' : 'eye-off'} size={24} color="#6c757d" />
+                  </TouchableOpacity>
+                </View>
+              </View>
+
+              <View style={styles.inputContainer}>
+                <Text style={styles.label}>Confirm Password</Text>
+                <View style={styles.passwordContainer}>
+                  <TextInput
+                    style={styles.passwordInput}
+                    placeholder="Confirm your password"
+                    value={confirmPassword}
+                    onChangeText={setConfirmPassword}
+                    secureTextEntry={!showConfirmPassword}
+                  />
+                  <TouchableOpacity onPress={() => setShowConfirmPassword(!showConfirmPassword)}>
+                    <Ionicons name={showConfirmPassword ? 'eye' : 'eye-off'} size={24} color="#6c757d" />
+                  </TouchableOpacity>
+                </View>
+              </View>
+
+              <View style={styles.inputContainer}>
+                <Text style={styles.securityQuestion}>What is your dream travel destination?</Text>
+                <TextInput
+                  style={styles.input}
+                  placeholder="Your answer"
+                  value={securityAnswer}
+                  onChangeText={setSecurityAnswer}
+                />
+              </View>
+
+              <TouchableOpacity 
+                style={[styles.button, loading ? styles.buttonDisabled : null]} 
+                onPress={handleRegister} 
+                disabled={loading}
+              >
+                {loading ? (
+                  <ActivityIndicator size="small" color="#ffffff" />
+                ) : (
+                  <Text style={styles.buttonText}>Register</Text>
+                )}
               </TouchableOpacity>
+
+              <View style={styles.loginContainer}>
+                <Text style={styles.loginText}>Already have an account? </Text>
+                <TouchableOpacity onPress={() => navigation.navigate('Login')}>
+                  <Text style={styles.loginLink}>Login</Text>
+                </TouchableOpacity>
+              </View>
             </View>
           </View>
+        </ScrollView>
+      </KeyboardAvoidingView>
 
-          <View style={styles.inputContainer}>
-            <Text style={styles.label}>Confirm Password</Text>
-            <View style={styles.passwordContainer}>
-              <TextInput
-                style={styles.passwordInput}
-                placeholder="Confirm your password"
-                value={confirmPassword}
-                onChangeText={setConfirmPassword}
-                secureTextEntry={!showConfirmPassword}
-              />
-              <TouchableOpacity onPress={() => setShowConfirmPassword(!showConfirmPassword)}>
-                <Ionicons name={showConfirmPassword ? 'eye' : 'eye-off'} size={24} color="#6c757d" />
-              </TouchableOpacity>
-            </View>
-          </View>
-
-          <View style={styles.inputContainer}>
-            <Text style={styles.securityQuestion}>What is your favorite color?</Text>
-            <TextInput
-              style={styles.input}
-              placeholder="Your answer"
-              value={securityAnswer}
-              onChangeText={setSecurityAnswer}
+      <Modal transparent={true} visible={alertVisible} animationType="fade">
+        <View style={styles.modalContainer}>
+          <View style={styles.modalContent}>
+            <Ionicons 
+              name={alertMessage.includes('success') ? 'checkmark-circle' : 'close-circle'} 
+              size={40} 
+              color={alertMessage.includes('success') ? '#28a745' : '#dc3545'} 
+              style={styles.modalIcon} 
             />
-          </View>
-
-          <TouchableOpacity style={styles.button} onPress={handleRegister} disabled={loading}>
-            <Text style={styles.buttonText}>
-              {loading ? 'Creating account...' : 'Register'}
-            </Text>
-          </TouchableOpacity>
-
-          <View style={styles.loginContainer}>
-            <Text style={styles.loginText}>Already have an account? </Text>
-            <TouchableOpacity onPress={() => navigation.navigate('Login')}>
-              <Text style={styles.loginLink}>Login</Text>
-            </TouchableOpacity>
+            <Text style={styles.modalText}>{alertMessage}</Text>
           </View>
         </View>
-
-        <Modal transparent={true} visible={alertVisible} animationType="fade">
-          <View style={styles.modalContainer}>
-            <View style={styles.modalContent}>
-              <Ionicons 
-                name={alertMessage.includes('success') ? 'checkmark-circle' : 'close-circle'} 
-                size={40} 
-                color={alertMessage.includes('success') ? '#28a745' : '#dc3545'} 
-                style={styles.modalIcon} 
-              />
-              <Text style={styles.modalText}>{alertMessage}</Text>
-            </View>
-          </View>
-        </Modal>
-      </View>
-    </ScrollView>
+      </Modal>
+    </SafeAreaView>
   );
 };
 
 const styles = StyleSheet.create({
+  safeArea: {
+    flex: 1,
+    backgroundColor: '#f8f9fa',
+    paddingTop: Platform.OS === 'android' ? StatusBar.currentHeight : 0,
+  },
+  keyboardAvoidingView: {
+    flex: 1,
+  },
   scrollContainer: {
     flex: 1,
     backgroundColor: '#f8f9fa',
+  },
+  scrollContentContainer: {
+    flexGrow: 1,
+    paddingBottom: 30,
   },
   container: {
     flex: 1,
@@ -214,24 +245,25 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
+    backgroundColor: '#f8f9fa',
   },
   title: {
     fontFamily: 'Poppins_600SemiBold',
     fontSize: 32,
-    marginTop: 30,
+    marginTop: 10, // Reduced from 30 to fix spacing in APK
     color: '#13547D',
   },
   subtitle: {
     fontFamily: 'Poppins_400Regular',
     fontSize: 16,
     color: '#6c757d',
-    marginBottom: 40,
+    marginBottom: 30, // Reduced from 40 to make more compact in APK
   },
   form: {
     width: '100%',
   },
   inputContainer: {
-    marginBottom: 24,
+    marginBottom: 20, // Reduced from 24 to make more compact in APK
   },
   label: {
     fontFamily: 'Poppins_400Regular',
@@ -281,6 +313,9 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.2,
     shadowRadius: 4,
     elevation: 3,
+  },
+  buttonDisabled: {
+    backgroundColor: '#88a9be',
   },
   buttonText: {
     fontFamily: 'Poppins_600SemiBold',

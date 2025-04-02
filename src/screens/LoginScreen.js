@@ -1,12 +1,14 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { 
-  View, Text, TextInput, TouchableOpacity, StyleSheet, ActivityIndicator, Modal 
+  View, Text, TextInput, TouchableOpacity, StyleSheet, ActivityIndicator, Modal,
+  SafeAreaView, StatusBar, Alert
 } from 'react-native';
 import { loginUser, checkSecurityAnswer, resetPassword } from '../api';
 import { useFocusEffect } from '@react-navigation/native';
 import { useFonts, Poppins_400Regular, Poppins_600SemiBold } from '@expo-google-fonts/poppins';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Ionicons } from '@expo/vector-icons';
+import NetInfo from '@react-native-community/netinfo';
 
 const LoginScreen = ({ navigation }) => {
   const [email, setEmail] = useState('');
@@ -23,11 +25,23 @@ const LoginScreen = ({ navigation }) => {
   const [confirmNewPassword, setConfirmNewPassword] = useState('');
   const [showNewPassword, setShowNewPassword] = useState(false);
   const [showConfirmNewPassword, setShowConfirmNewPassword] = useState(false);
+  const [isConnected, setIsConnected] = useState(true);
 
   const [fontsLoaded] = useFonts({
     Poppins_400Regular,
     Poppins_600SemiBold,
   });
+
+  // Check network connection status
+  useEffect(() => {
+    const unsubscribe = NetInfo.addEventListener(state => {
+      setIsConnected(state.isConnected);
+    });
+    
+    return () => {
+      unsubscribe();
+    };
+  }, []);
 
   useFocusEffect(
     React.useCallback(() => {
@@ -43,6 +57,37 @@ const LoginScreen = ({ navigation }) => {
     setAlertVisible(true);
   };
 
+  // Store user credentials securely
+  const storeCredentials = async (userEmail, userPassword, userId) => {
+    try {
+      // Store credentials for offline login
+      await AsyncStorage.setItem('userCredentials', JSON.stringify({
+        email: userEmail,
+        password: userPassword,
+        userId: userId
+      }));
+    } catch (error) {
+      console.error('Error storing credentials:', error);
+    }
+  };
+
+  // Verify credentials against locally stored ones
+  const verifyOfflineCredentials = async (userEmail, userPassword) => {
+    try {
+      const storedCredentialsJson = await AsyncStorage.getItem('userCredentials');
+      if (storedCredentialsJson) {
+        const storedCredentials = JSON.parse(storedCredentialsJson);
+        if (storedCredentials.email === userEmail && storedCredentials.password === userPassword) {
+          return { success: true, userId: storedCredentials.userId };
+        }
+      }
+      return { success: false };
+    } catch (error) {
+      console.error('Error verifying offline credentials:', error);
+      return { success: false };
+    }
+  };
+
   const handleLogin = async () => {
     if (!email || !password) {
       showAlert('Please fill in all fields');
@@ -51,25 +96,50 @@ const LoginScreen = ({ navigation }) => {
 
     try {
       setLoading(true);
-      const userData = await loginUser(email, password);
+      
+      if (isConnected) {
+        // Online login
+        const userData = await loginUser(email, password);
 
-      console.log('Login Response:', userData);
+        console.log('Login Response:', userData);
 
-      if (!userData || !userData.userId) {
-        throw new Error('Invalid login response');
+        if (!userData || !userData.userId) {
+          throw new Error('Invalid login response');
+        }
+
+        // Store credentials for offline login
+        await storeCredentials(email, password, userData.userId.toString());
+        await AsyncStorage.setItem('userId', userData.userId.toString());
+
+        await AsyncStorage.setItem('userToken', userData.token || 'default-token-' + userData.userId);
+        
+        setLoading(false);
+        navigation.navigate('Main');
+      } else {
+        // Offline login
+        console.log('Attempting offline login...');
+        const offlineAuth = await verifyOfflineCredentials(email, password);
+        
+        if (offlineAuth.success) {
+          await AsyncStorage.setItem('userId', offlineAuth.userId);
+          setLoading(false);
+          navigation.navigate('Main');
+        } else {
+          throw new Error('Invalid credentials or no stored offline data');
+        }
       }
-
-      await AsyncStorage.setItem('userId', userData.userId.toString());
-
-      setLoading(false);
-      navigation.navigate('Main');
     } catch (error) {
       setLoading(false);
-      showAlert('Login Failed: ' + error.message);
+      showAlert(`Login Failed: ${error.message}${!isConnected ? ' (Offline Mode)' : ''}`);
     }
   };
 
   const handleForgotPassword = () => {
+    if (!isConnected) {
+      showAlert('Cannot reset password in offline mode. Please connect to the internet and try again.');
+      return;
+    }
+    
     setForgotPasswordEmail('');
     setSecurityAnswer('');
     setNewPassword('');
@@ -86,8 +156,6 @@ const LoginScreen = ({ navigation }) => {
 
     try {
       setLoading(true);
-      // Ideally verify if email exists in the system first
-      // For now, we'll just proceed to the security question
       setLoading(false);
       setResetStep(2);
     } catch (error) {
@@ -141,6 +209,12 @@ const LoginScreen = ({ navigation }) => {
       const result = await resetPassword(forgotPasswordEmail, newPassword);
       
       if (result.success) {
+        // Update stored credentials with new password
+        const userId = await AsyncStorage.getItem('userId');
+        if (userId && forgotPasswordEmail === email) {
+          await storeCredentials(forgotPasswordEmail, newPassword, userId);
+        }
+        
         setLoading(false);
         setForgotPasswordModal(false);
         showAlert('Password reset successfully. Please login with your new password.');
@@ -198,7 +272,7 @@ const LoginScreen = ({ navigation }) => {
         return (
           <>
             <Text style={styles.modalTitle}>Security Question</Text>
-            <Text style={styles.modalSubtitle}>What is your favorite color?</Text>
+            <Text style={styles.modalSubtitle}>What is your dream travel destination?</Text>
             <TextInput
               style={styles.modalInput}
               placeholder="Your answer"
@@ -279,112 +353,132 @@ const LoginScreen = ({ navigation }) => {
   };
 
   return (
-    <View style={styles.container}>
-      <Text style={styles.title}>Welcome Back</Text>
-      <Text style={styles.subtitle}>Login to continue</Text>
+    <SafeAreaView style={styles.safeArea}>
+      <StatusBar translucent backgroundColor="transparent" barStyle="dark-content" />
+      <View style={styles.container}>
+        <Text style={styles.title}>Welcome Back</Text>
+        <Text style={styles.subtitle}>Login to continue</Text>
+        
+        {!isConnected && (
+          <View style={styles.offlineBanner}>
+            <Ionicons name="cloud-offline-outline" size={20} color="#fff" />
+            <Text style={styles.offlineText}>Offline Mode</Text>
+          </View>
+        )}
 
-      <View style={styles.form}>
-        <View style={styles.inputContainer}>
-          <Text style={styles.label}>Email</Text>
-          <TextInput
-            style={styles.input}
-            placeholder="Enter your email"
-            value={email}
-            onChangeText={setEmail}
-            keyboardType="email-address"
-            autoCapitalize="none"
-          />
-        </View>
-
-        <View style={styles.inputContainer}>
-          <Text style={styles.label}>Password</Text>
-          <View style={styles.passwordContainer}>
+        <View style={styles.form}>
+          <View style={styles.inputContainer}>
+            <Text style={styles.label}>Email</Text>
             <TextInput
-              style={styles.passwordInput}
-              placeholder="Enter your password"
-              value={password}
-              onChangeText={setPassword}
-              secureTextEntry={!showPassword}
+              style={styles.input}
+              placeholder="Enter your email"
+              value={email}
+              onChangeText={setEmail}
+              keyboardType="email-address"
+              autoCapitalize="none"
             />
-            <TouchableOpacity onPress={() => setShowPassword(!showPassword)}>
-              <Ionicons
-                name={showPassword ? 'eye' : 'eye-off'}
-                size={24}
-                color="#6c757d"
+          </View>
+
+          <View style={styles.inputContainer}>
+            <Text style={styles.label}>Password</Text>
+            <View style={styles.passwordContainer}>
+              <TextInput
+                style={styles.passwordInput}
+                placeholder="Enter your password"
+                value={password}
+                onChangeText={setPassword}
+                secureTextEntry={!showPassword}
               />
-            </TouchableOpacity>
+              <TouchableOpacity onPress={() => setShowPassword(!showPassword)}>
+                <Ionicons
+                  name={showPassword ? 'eye' : 'eye-off'}
+                  size={24}
+                  color="#6c757d"
+                />
+              </TouchableOpacity>
+            </View>
           </View>
-        </View>
 
-        <TouchableOpacity 
-          style={styles.forgotPasswordButton} 
-          onPress={handleForgotPassword}
-        >
-          <Text style={styles.forgotPasswordText}>Forgot Password?</Text>
-        </TouchableOpacity>
-
-        <TouchableOpacity
-          style={styles.button}
-          onPress={handleLogin}
-          disabled={loading}
-        >
-          <Text style={styles.buttonText}>
-            {loading ? 'Logging in...' : 'Login'}
-          </Text>
-        </TouchableOpacity>
-
-        <View style={styles.registerContainer}>
-          <Text style={styles.registerText}>Don't have an account? </Text>
-          <TouchableOpacity onPress={() => navigation.navigate('Register')}>
-            <Text style={styles.registerLink}>Register</Text>
+          <TouchableOpacity 
+            style={styles.forgotPasswordButton} 
+            onPress={handleForgotPassword}
+          >
+            <Text style={styles.forgotPasswordText}>Forgot Password?</Text>
           </TouchableOpacity>
-        </View>
-      </View>
 
-      {/* Alert Modal */}
-      <Modal
-        visible={alertVisible}
-        transparent={true}
-        animationType="fade"
-        onRequestClose={() => setAlertVisible(false)}
-      >
-        <View style={styles.modalOverlay}>
-          <View style={styles.alertBox}>
-            <Text style={styles.alertTitle}>Oops!</Text>
-            <Text style={styles.alertMessage}>{alertMessage}</Text>
-            <TouchableOpacity
-              style={styles.alertButton}
-              onPress={() => setAlertVisible(false)}
-            >
-              <Text style={styles.alertButtonText}>OK</Text>
+          <TouchableOpacity
+            style={styles.button}
+            onPress={handleLogin}
+            disabled={loading}
+          >
+            <Text style={styles.buttonText}>
+              {loading ? 'Logging in...' : 'Login'}
+            </Text>
+          </TouchableOpacity>
+
+          <View style={styles.registerContainer}>
+            <Text style={styles.registerText}>Don't have an account? </Text>
+            <TouchableOpacity onPress={() => navigation.navigate('Register')} disabled={!isConnected}>
+              <Text style={[styles.registerLink, !isConnected && styles.disabledLink]}>Register</Text>
             </TouchableOpacity>
           </View>
+          
+          {!isConnected && (
+            <Text style={styles.offlineNote}>
+              Note: Registration requires an internet connection
+            </Text>
+          )}
         </View>
-      </Modal>
 
-      {/* Forgot Password Modal */}
-      <Modal
-        visible={forgotPasswordModal}
-        transparent={true}
-        animationType="slide"
-        onRequestClose={() => setForgotPasswordModal(false)}
-      >
-        <View style={styles.modalOverlay}>
-          <View style={styles.forgotPasswordBox}>
-            {renderForgotPasswordContent()}
+        {/* Alert Modal */}
+        <Modal
+          visible={alertVisible}
+          transparent={true}
+          animationType="fade"
+          onRequestClose={() => setAlertVisible(false)}
+        >
+          <View style={styles.modalOverlay}>
+            <View style={styles.alertBox}>
+              <Text style={styles.alertTitle}>Oops!</Text>
+              <Text style={styles.alertMessage}>{alertMessage}</Text>
+              <TouchableOpacity
+                style={styles.alertButton}
+                onPress={() => setAlertVisible(false)}
+              >
+                <Text style={styles.alertButtonText}>OK</Text>
+              </TouchableOpacity>
+            </View>
           </View>
-        </View>
-      </Modal>
-    </View>
+        </Modal>
+
+        {/* Forgot Password Modal */}
+        <Modal
+          visible={forgotPasswordModal}
+          transparent={true}
+          animationType="slide"
+          onRequestClose={() => setForgotPasswordModal(false)}
+        >
+          <View style={styles.modalOverlay}>
+            <View style={styles.forgotPasswordBox}>
+              {renderForgotPasswordContent()}
+            </View>
+          </View>
+        </Modal>
+      </View>
+    </SafeAreaView>
   );
 };
 
 const styles = StyleSheet.create({
+  safeArea: {
+    flex: 1,
+    backgroundColor: '#f8f9fa',
+  },
   container: {
     flex: 1,
     padding: 24,
     backgroundColor: '#f8f9fa',
-    fontFamily: 'Poppins_400Regular',
+    paddingTop: StatusBar.currentHeight || 0,
   },
   centered: {
     flex: 1,
@@ -394,7 +488,7 @@ const styles = StyleSheet.create({
   title: {
     fontFamily: 'Poppins_600SemiBold',
     fontSize: 32,
-    marginTop: 30,
+    marginTop: 10,
     color: '#13547D',
     letterSpacing: 0.5,
   },
@@ -600,6 +694,31 @@ const styles = StyleSheet.create({
     fontFamily: 'Poppins_600SemiBold',
     color: '#6c757d',
     fontSize: 16,
+  },
+  disabledLink: {
+    color: '#a0a0a0',
+  },
+  offlineBanner: {
+    backgroundColor: '#f39c12',
+    padding: 10,
+    borderRadius: 8,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 20,
+  },
+  offlineText: {
+    fontFamily: 'Poppins_600SemiBold',
+    color: '#ffffff',
+    marginLeft: 8,
+    fontSize: 14,
+  },
+  offlineNote: {
+    fontFamily: 'Poppins_400Regular',
+    color: '#6c757d',
+    fontSize: 12,
+    textAlign: 'center',
+    marginTop: 8,
   },
 });
 
